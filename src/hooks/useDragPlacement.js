@@ -5,6 +5,26 @@ import {
   calculateValidDropZones,
 } from "../utils/validDropZones";
 
+const snapToGrid = (time) => Math.round(time);
+
+const resolveDropTime = ({
+  time,
+  placements,
+  ability,
+  timelineDuration,
+  excludePlacementId,
+}) => {
+  const validZones = calculateValidDropZones(
+    placements,
+    ability,
+    timelineDuration,
+    excludePlacementId
+  );
+  return snapToValidZone(time, validZones, ability);
+};
+
+// Above helper functions left outside of returned hook since they do not require the state of the hook. May wish to see if it could be slightly beneficial to move others out, or these in.
+
 export function useDragPlacement({
   placements,
   setPlacements,
@@ -17,15 +37,27 @@ export function useDragPlacement({
   const [isDraggingOnTimeline, setIsDraggingOnTimeline] = useState(false);
   const [dragOffset, setDragOffset] = useState(0);
 
+  /**
+   * resetDrag - applies common setting to null for the multiple times drag is reset in this hook
+   * The following are typically also reset before this, but not consistently. 
+   * Further investigation could reveal if it's fine to add these here and remove repeats in code.
+   * setDragPreview(null);
+   * setIsDraggingOnTimeline(false);
+   */
+  const resetDrag = () => {
+    setDraggedAbility(null);
+    setDraggedFrom(null);
+    setDragOffset(0);
+  };
+
+  const getExcludePlacementId = () =>
+    draggedFrom === "timeline" ? draggedAbility.placementId : null;
+
   const handleDragStart = (ability, from = "palette", clickOffset = 0) => {
     setDraggedAbility(ability);
     setDraggedFrom(from);
     setDragOffset(clickOffset);
     setIsDraggingOnTimeline(false);
-  };
-
-  const snapToGrid = (time) => {
-    return Math.round(time);
   };
 
   const completePlacement = (startTime, slot) => {
@@ -37,8 +69,7 @@ export function useDragPlacement({
       return false;
     }
 
-    const excludeId =
-      draggedFrom === "timeline" ? draggedAbility.placementId : null;
+    const excludeId = getExcludePlacementId();
     const hasConflict = checkCooldownConflict(
       placements,
       draggedAbility,
@@ -113,55 +144,33 @@ export function useDragPlacement({
 
     if (!draggedAbility) return;
 
+    // TODO: allow dropping when mouse hovered over another slot (preview should still display in character's slot)
     if (draggedAbility.slot !== slot) {
-      setDraggedAbility(null);
-      setDraggedFrom(null);
-      setDragOffset(0);
+      resetDrag();
       return;
     }
 
-    let startTime;
+    const excludePlacementId = getExcludePlacementId();
+    let time;
     if (previewToUse && previewToUse.slot === slot) {
-      const excludeId =
-        draggedFrom === "timeline" ? draggedAbility.placementId : null;
-      const validZones = calculateValidDropZones(
-        placements,
-        draggedAbility,
-        timelineDuration,
-        excludeId
-      );
-      startTime = snapToValidZone(
-        previewToUse.startTime,
-        validZones,
-        draggedAbility
-      );
+      time = previewToUse.startTime;
     } else {
       const rowRect = e.currentTarget.getBoundingClientRect();
       const x = e.clientX - rowRect.left;
       const rawTime = Math.max(0, x / pixelsPerSecond);
-      const unsnappedTime = Math.max(0, snapToGrid(rawTime - dragOffset));
-
-      // Snap to valid zones
-      const excludeId =
-        draggedFrom === "timeline" ? draggedAbility.placementId : null;
-      const validZones = calculateValidDropZones(
-        placements,
-        draggedAbility,
-        timelineDuration,
-        excludeId
-      );
-      startTime = snapToValidZone(unsnappedTime, validZones, draggedAbility);
+      time = Math.max(0, snapToGrid(rawTime - dragOffset));
     }
 
-    if (completePlacement(startTime, slot)) {
-      setDraggedAbility(null);
-      setDraggedFrom(null);
-      setDragOffset(0);
-    } else {
-      setDraggedAbility(null);
-      setDraggedFrom(null);
-      setDragOffset(0);
-    }
+    const startTime = resolveDropTime({
+      time,
+      placements,
+      ability: draggedAbility,
+      timelineDuration,
+      excludePlacementId,
+    });
+
+    completePlacement(startTime, slot);
+    resetDrag();
   };
 
   // Global drop handler
@@ -171,44 +180,28 @@ export function useDragPlacement({
         e.preventDefault();
 
         const slot = draggedAbility.slot;
-
-        // Snap the preview time to valid zones before placing
-        const excludeId =
-          draggedFrom === "timeline" ? draggedAbility.placementId : null;
-        const validZones = calculateValidDropZones(
+        const startTime = resolveDropTime({
+          time: dragPreview.startTime,
           placements,
-          draggedAbility,
+          ability: draggedAbility,
           timelineDuration,
-          excludeId
-        );
-        const startTime = snapToValidZone(
-          dragPreview.startTime,
-          validZones,
-          draggedAbility
-        );
+          excludePlacementId:
+            draggedFrom === "timeline" ? draggedAbility.placementId : null
+        });
 
         setDragPreview(null);
         setIsDraggingOnTimeline(false);
 
-        if (completePlacement(startTime, slot)) {
-          setDraggedAbility(null);
-          setDraggedFrom(null);
-          setDragOffset(0);
-        } else {
-          setDraggedAbility(null);
-          setDraggedFrom(null);
-          setDragOffset(0);
-        }
+        completePlacement(startTime, slot);
+        resetDrag();
       }
     };
 
-    const handleGlobalDragEnd = (e) => {
+    const handleGlobalDragEnd = () => {
       if (draggedAbility) {
-        setDraggedAbility(null);
-        setDraggedFrom(null);
+        resetDrag();
         setDragPreview(null);
         setIsDraggingOnTimeline(false);
-        setDragOffset(0);
       }
     };
 
