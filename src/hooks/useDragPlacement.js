@@ -144,12 +144,6 @@ export function useDragPlacement({
 
     if (!draggedAbility) return;
 
-    // TODO: allow dropping when mouse hovered over another slot (preview should still display in character's slot)
-    if (draggedAbility.slot !== slot) {
-      resetDrag();
-      return;
-    }
-
     const excludePlacementId = getExcludePlacementId();
     let time;
     if (previewToUse && previewToUse.slot === slot) {
@@ -159,6 +153,7 @@ export function useDragPlacement({
       const x = e.clientX - rowRect.left;
       const rawTime = Math.max(0, x / pixelsPerSecond);
       time = Math.max(0, snapToGrid(rawTime - dragOffset));
+      slot = previewToUse.slot; // set the slot to be placed in to be the previewed slot
     }
 
     const startTime = resolveDropTime({
