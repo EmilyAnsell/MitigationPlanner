@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from "react";
+import { useState, useMemo } from "react";
 import { ChevronDown, ChevronUp } from "lucide-react";
 import { JOBS, PARTY_SLOTS, SLOT_LABELS } from "../data/jobs";
 

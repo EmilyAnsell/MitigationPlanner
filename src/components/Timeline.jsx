@@ -1,4 +1,4 @@
-import React, { useRef, useEffect, useState, useMemo } from "react";
+import { useRef, useEffect, useState, useMemo } from "react";
 import { RotateCcw } from "lucide-react";
 import { PARTY_SLOTS } from "../data/jobs";
 import { ROW_HEIGHT, PIXELS_PER_SECOND } from "../data/bossTimelines";

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import { useState, useEffect } from "react";
 import PartyComposition from "./components/PartyComposition";
 import PlayerSelector from "./components/PlayerSelector";
 import PlayerAbilities from "./components/PlayerAbilities";
@@ -108,7 +108,7 @@ export default function MitigationPlanner() {
       placements,
       draggedAbility,
       startTime,
-      excludeId
+      excludeId,
     );
 
     if (!hasConflict) {
@@ -126,8 +126,8 @@ export default function MitigationPlanner() {
           placements.map((p) =>
             p.placementId === draggedAbility.placementId
               ? { ...p, startTime }
-              : p
-          )
+              : p,
+          ),
         );
       }
       return true;
@@ -193,12 +193,12 @@ export default function MitigationPlanner() {
         placements,
         draggedAbility,
         timeline.duration,
-        excludeId
+        excludeId,
       );
       startTime = snapToValidZone(
         previewToUse.startTime,
         validZones,
-        draggedAbility
+        draggedAbility,
       );
     } else {
       const rowRect = e.currentTarget.getBoundingClientRect();
@@ -213,7 +213,7 @@ export default function MitigationPlanner() {
         placements,
         draggedAbility,
         timeline.duration,
-        excludeId
+        excludeId,
       );
       startTime = snapToValidZone(unsnappedTime, validZones, draggedAbility);
     }
@@ -254,12 +254,12 @@ export default function MitigationPlanner() {
           placements,
           draggedAbility,
           timeline.duration,
-          excludeId
+          excludeId,
         );
         const startTime = snapToValidZone(
           dragPreview.startTime,
           validZones,
-          draggedAbility
+          draggedAbility,
         );
 
         setDragPreview(null);
@@ -277,7 +277,7 @@ export default function MitigationPlanner() {
       }
     };
 
-    const handleGlobalDragEnd = (e) => {
+    const handleGlobalDragEnd = (_e) => {
       if (draggedAbility) {
         setDraggedAbility(null);
         setDraggedFrom(null);

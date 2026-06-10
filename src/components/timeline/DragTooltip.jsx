@@ -1,4 +1,3 @@
-import React from "react";
 import { formatTime } from "../../utils/cooldownCalculations";
 import { calculateAbilityLanes } from "../../utils/laneCalculations";
 import { ROW_HEIGHT } from "../../data/bossTimelines";

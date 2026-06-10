@@ -1,4 +1,3 @@
-import React from "react";
 import { JOBS, PARTY_SLOTS, SLOT_LABELS } from "../data/jobs";
 
 export default function PlayerSelector({

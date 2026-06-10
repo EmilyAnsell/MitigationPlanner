@@ -1,4 +1,3 @@
-import React from "react";
 import { ROW_HEIGHT } from "../../data/bossTimelines";
 
 export default function ValidDropZones({

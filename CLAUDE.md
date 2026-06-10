@@ -27,6 +27,7 @@ The app is a single-page React tool for planning FFXIV mitigation cooldowns agai
 ### State ownership
 
 All core state lives in `App.jsx` (`MitigationPlanner` component):
+
 - `partyComp` — 8-slot party (`tank1`/`tank2`/`healer1`/`healer2`/`dps1-4`), each mapped to a job ID
 - `placements` — array of placed abilities on the timeline; each entry extends an ability object with `startTime` and a unique `placementId`
 - `draggedAbility`, `draggedFrom`, `dragPreview`, `dragOffset`, `isDraggingOnTimeline` — drag-and-drop in-flight state
@@ -71,7 +72,7 @@ Add the job to `JOBS` in `src/data/jobs.js`. Drop the ability icon PNG into `src
 - **Public utilities and hooks**: `export function` (e.g., `checkCooldownConflict`, `useTimelineZoom`)
 - **Private module-level helpers** in utility files: `function` declarations (e.g., `simulateChargeUsage`, `mergeRanges`, `calculateSimpleValidZones`) — not arrow functions
 - **Component-internal handlers**: `const` arrow functions (`const handleSave = () => ...`)
-- **Props**: always destructured in the function signature, never accessed via a `props` param
+- **Props**: always destructured in the function signature, never accessed via a `props` param. always prefix unused props with `_` to avoid ESLint warnings (e.g. `(_ability)` in `snapToValidZone`) and use '\_' for ignored function parameters as is javascript convention.
 - **Styling**: Tailwind classes for static styles; inline `style={{}}` only for values that require JS computation (positions, widths, colors from data). Never use inline style for something expressible as a Tailwind class.
 - **File extensions**: `.jsx` for React components, `.js` for everything else (hooks, utils, data)
 - **Exports**: named exports for utilities/data; default export for components

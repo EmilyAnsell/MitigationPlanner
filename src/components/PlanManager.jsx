@@ -1,4 +1,4 @@
-import React, { useState, useRef } from "react";
+import { useState, useRef } from "react";
 import { Save, Download, Upload, Trash2, Plus } from "lucide-react";
 import {
   getPlansByBoss,
