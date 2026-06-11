@@ -233,6 +233,16 @@ export default function MitigationPlanner() {
     setPlacements(placements.filter((p) => p.placementId !== placementId));
   };
 
+  const clearRow = (slot) => {
+    if (
+      confirm(
+        `Clear all abilities from ${JOBS[partyComp[slot]]?.name || slot}?`,
+      )
+    ) {
+      setPlacements(placements.filter((p) => p.slot !== slot));
+    }
+  };
+
   const clearAll = () => {
     if (confirm("Clear all abilities from the timeline?")) {
       setPlacements([]);
@@ -305,8 +315,8 @@ export default function MitigationPlanner() {
   ]);
 
   return (
-    <div className="min-h-screen bg-gray-900 text-white p-6">
-      <div className="max-w-7xl mx-auto">
+    <div className="min-h-screen p-6 text-white bg-gray-900">
+      <div className="mx-auto max-w-7xl">
         <TimelineControls
           currentTimeline={currentTimeline}
           onTimelineChange={handleTimelineChange}
@@ -317,7 +327,11 @@ export default function MitigationPlanner() {
           placements={placements}
         />
 
-        <PartyComposition partyComp={partyComp} setPartyComp={setPartyComp} />
+        <PartyComposition
+          partyComp={partyComp}
+          setPartyComp={setPartyComp}
+          onClearRow={clearRow}
+        />
 
         <PlayerSelector
           partyComp={partyComp}

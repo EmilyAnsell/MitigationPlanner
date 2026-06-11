@@ -2,7 +2,11 @@ import { useState, useMemo } from "react";
 import { ChevronDown, ChevronUp } from "lucide-react";
 import { JOBS, PARTY_SLOTS, SLOT_LABELS } from "../data/jobs";
 
-export default function PartyComposition({ partyComp, setPartyComp }) {
+export default function PartyComposition({
+  partyComp,
+  setPartyComp,
+  onClearRow,
+}) {
   const [isExpanded, setIsExpanded] = useState(true);
 
   const getSlotRole = (slot) => {
@@ -14,19 +18,19 @@ export default function PartyComposition({ partyComp, setPartyComp }) {
 
   const getJobsByCategory = useMemo(() => {
     const tanks = Object.entries(JOBS).filter(
-      ([_, job]) => job.role === "Tank"
+      ([_, job]) => job.role === "Tank",
     );
     const healers = Object.entries(JOBS).filter(
-      ([_, job]) => job.role === "Healer"
+      ([_, job]) => job.role === "Healer",
     );
     const melee = Object.entries(JOBS).filter(
-      ([_, job]) => job.role === "Melee"
+      ([_, job]) => job.role === "Melee",
     );
     const physicalRanged = Object.entries(JOBS).filter(
-      ([_, job]) => job.role === "Physical_Ranged"
+      ([_, job]) => job.role === "Physical_Ranged",
     );
     const magicalRanged = Object.entries(JOBS).filter(
-      ([_, job]) => job.role === "Magical_Ranged"
+      ([_, job]) => job.role === "Magical_Ranged",
     );
 
     return {
@@ -41,13 +45,13 @@ export default function PartyComposition({ partyComp, setPartyComp }) {
   }, []);
 
   return (
-    <div className="bg-gray-800 rounded-lg p-4 mb-6">
+    <div className="p-4 mb-6 bg-gray-800 rounded-lg">
       <div
-        className="flex justify-between items-center cursor-pointer"
+        className="flex items-center justify-between cursor-pointer"
         onClick={() => setIsExpanded(!isExpanded)}
       >
         <h2 className="text-xl font-semibold">Party Composition</h2>
-        <button className="hover:bg-gray-700 rounded p-1">
+        <button className="p-1 rounded hover:bg-gray-700">
           {isExpanded ? <ChevronUp size={20} /> : <ChevronDown size={20} />}
         </button>
       </div>
@@ -60,18 +64,21 @@ export default function PartyComposition({ partyComp, setPartyComp }) {
 
             return (
               <div key={slot}>
-                <label className="block text-sm text-gray-400 mb-1">
+                <label className="block mb-1 text-sm text-gray-400">
                   {SLOT_LABELS[slot]}
                 </label>
                 <select
                   value={partyComp[slot] || ""}
-                  onChange={(e) =>
+                  onChange={(e) => {
+                    if (e.target.value !== partyComp[slot]) {
+                      onClearRow(slot);
+                    }
                     setPartyComp({
                       ...partyComp,
                       [slot]: e.target.value || null,
-                    })
-                  }
-                  className="w-full bg-gray-700 rounded px-3 py-2"
+                    });
+                  }}
+                  className="w-full px-3 py-2 bg-gray-700 rounded"
                 >
                   <option value="">None</option>
                   {Object.entries(jobCategories).map(([categoryName, jobs]) => (
