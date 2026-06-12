@@ -237,10 +237,12 @@ export default function MitigationPlanner() {
     if (placements.filter((p) => p.slot === slot).length !== 0) {
       if (
         confirm(
-          `Clear all abilities from ${JOBS[partyComp[slot]]?.name || slot}?`,
+          `Clear non-role abilities from ${JOBS[partyComp[slot]]?.name || slot}?`,
         )
       ) {
-        setPlacements(placements.filter((p) => p.slot !== slot));
+        setPlacements(
+          placements.filter((p) => p.slot !== slot || p.isRoleAbility),
+        );
         return true;
       } else {
         return false; // User cancelled clearing the row
