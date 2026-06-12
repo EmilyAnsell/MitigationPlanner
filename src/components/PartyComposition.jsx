@@ -71,7 +71,7 @@ export default function PartyComposition({
                   value={partyComp[slot] || ""}
                   onChange={(e) => {
                     if (e.target.value !== partyComp[slot]) {
-                      if (!onClearRow(slot)) {
+                      if (!onClearRow(slot, true)) {
                         return; // If the user cancels clearing the row, don't change the job selection
                       }
                     }

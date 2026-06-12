@@ -233,8 +233,18 @@ export default function MitigationPlanner() {
     setPlacements(placements.filter((p) => p.placementId !== placementId));
   };
 
-  const clearRow = (slot) => {
-    if (placements.filter((p) => p.slot === slot).length !== 0) {
+  /**
+   * Clears ability placements from a party slot.
+   * @param {string} slot - Party slot key (e.g. "tank1")
+   * @param {boolean} [isRoleSwap=false] - When true, preserves role abilities and prompts for confirmation; when false, clears all without prompting
+   * @returns {boolean} false if the user cancelled the confirmation, true otherwise
+   */
+  const clearRow = (slot, isRoleSwap = false) => {
+    if (placements.some((p) => p.slot === slot)) {
+      if (!isRoleSwap) {
+        setPlacements(placements.filter((p) => p.slot !== slot));
+        return true;
+      }
       if (
         confirm(
           `Clear non-role abilities from ${JOBS[partyComp[slot]]?.name || slot}?`,
