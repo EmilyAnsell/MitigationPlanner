@@ -380,6 +380,7 @@ export default function MitigationPlanner() {
           dragPreview={dragPreview}
           draggedFrom={draggedFrom}
           onClearAll={clearAll}
+          onClearRow={clearRow}
         />
       </div>
     </div>
