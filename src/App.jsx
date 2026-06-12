@@ -234,13 +234,19 @@ export default function MitigationPlanner() {
   };
 
   const clearRow = (slot) => {
-    if (
-      confirm(
-        `Clear all abilities from ${JOBS[partyComp[slot]]?.name || slot}?`,
-      )
-    ) {
-      setPlacements(placements.filter((p) => p.slot !== slot));
+    if (placements.filter((p) => p.slot === slot).length !== 0) {
+      if (
+        confirm(
+          `Clear all abilities from ${JOBS[partyComp[slot]]?.name || slot}?`,
+        )
+      ) {
+        setPlacements(placements.filter((p) => p.slot !== slot));
+        return true;
+      } else {
+        return false; // User cancelled clearing the row
+      }
     }
+    return true; // Default to returning true if no placements exist in the slot
   };
 
   const clearAll = () => {
