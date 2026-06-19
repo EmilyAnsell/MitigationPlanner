@@ -33,7 +33,7 @@ export default function DragPreview({
 
   // Find our preview placement in the calculated lanes
   const previewWithLane = placementsWithLanes.find(
-    (p) => p.placementId === "temp-preview"
+    (p) => p.placementId === "temp-preview",
   );
 
   if (!previewWithLane) {
@@ -41,9 +41,9 @@ export default function DragPreview({
     return (
       <>
         <div
-          className="absolute rounded pointer-events-none overflow-visible"
+          className="absolute overflow-visible rounded pointer-events-none"
           style={{
-            left: `${dragPreview.startTime * pixelsPerSecond}px`,
+            left: `${(dragPreview.startTime + dragPreview.prepullVisibleSeconds) * pixelsPerSecond}px`,
             width: `${draggedAbility.duration * pixelsPerSecond}px`,
             top: "10px",
             height: "40px",
@@ -55,9 +55,9 @@ export default function DragPreview({
         />
         {/* Timestamp tooltip */}
         <div
-          className="absolute pointer-events-none bg-gray-900 border border-gray-600 rounded px-2 py-1 text-xs whitespace-nowrap z-20"
+          className="absolute z-20 px-2 py-1 text-xs bg-gray-900 border border-gray-600 rounded pointer-events-none whitespace-nowrap"
           style={{
-            left: `${dragPreview.startTime * pixelsPerSecond - 10}px`,
+            left: `${(dragPreview.startTime + dragPreview.prepullVisibleSeconds) * pixelsPerSecond - 10}px`,
             top: "10px",
             transform: "translateX(-100%)",
           }}
@@ -78,9 +78,9 @@ export default function DragPreview({
   return (
     <>
       <div
-        className="absolute rounded pointer-events-none overflow-visible"
+        className="absolute overflow-visible rounded pointer-events-none"
         style={{
-          left: `${dragPreview.startTime * pixelsPerSecond}px`,
+          left: `${(dragPreview.startTime + dragPreview.prepullVisibleSeconds) * pixelsPerSecond}px`,
           width: `${draggedAbility.duration * pixelsPerSecond}px`,
           top: `${laneTop}px`,
           height: `${actualHeight}px`,
@@ -107,7 +107,7 @@ export default function DragPreview({
 
         {/* Icon */}
         {draggedAbility.icon && (
-          <div className="absolute left-0 top-0 overflow-hidden">
+          <div className="absolute top-0 left-0 overflow-hidden">
             <img
               src={draggedAbility.icon}
               alt=""
@@ -123,9 +123,9 @@ export default function DragPreview({
 
       {/* Timestamp tooltip */}
       <div
-        className="absolute pointer-events-none bg-gray-900 border border-gray-600 rounded px-2 py-1 text-xs whitespace-nowrap z-20"
+        className="absolute z-20 px-2 py-1 text-xs bg-gray-900 border border-gray-600 rounded pointer-events-none whitespace-nowrap"
         style={{
-          left: `${dragPreview.startTime * pixelsPerSecond - 10}px`,
+          left: `${(dragPreview.startTime + dragPreview.prepullVisibleSeconds) * pixelsPerSecond - 10}px`,
           top: `${laneTop}px`,
           transform: "translateX(-100%)",
         }}
