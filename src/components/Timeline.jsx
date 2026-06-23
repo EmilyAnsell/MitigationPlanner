@@ -97,8 +97,7 @@ export default function Timeline({
           timelineWrapperRef.current.clientWidth - labelWidth;
         const basePixelsPerSecond = PIXELS_PER_SECOND;
         const baseTimelineWidth =
-          (timeline.duration + prepullVisibleSeconds) * basePixelsPerSecond; //TODO check if this is correct with prepull
-
+          (timeline.duration + prepullVisibleSeconds) * basePixelsPerSecond;
         const neededZoom = (containerWidth / baseTimelineWidth) * 4;
         const calculatedMinZoom = Math.max(1, Math.ceil(neededZoom * 10) / 10);
 
@@ -143,7 +142,7 @@ export default function Timeline({
   const timeMarkers = useMemo(() => {
     const prepullMarkers = Array.from(
       { length: Math.floor(prepullVisibleSeconds / markerInterval) },
-      // Calculating with -(i + 1) because we start with the first marker at 5, not a second 0
+      // Calculating with -(k + 1) because we start with the first marker at a negative time, not a second 0
       (_, k) => -(k + 1) * markerInterval,
     ).reverse();
     const timelineMarkers = Array.from(
@@ -198,7 +197,7 @@ export default function Timeline({
             pixelsPerSecond={pixelsPerSecond}
             labelWidth={labelWidth}
             timelineWidth={timelineWidth}
-            prepullVisibleSeconds={0}
+            prepullVisibleSeconds={prepullVisibleSeconds}
           />
 
           {/* Timeline rows */}
@@ -281,7 +280,6 @@ export default function Timeline({
                         draggedFrom={draggedFrom}
                         pixelsPerSecond={pixelsPerSecond}
                         placements={slotPlacements}
-                        showTooltip={false}
                         prepullVisibleSeconds={prepullVisibleSeconds}
                       />
                       {/* Placed abilities */}

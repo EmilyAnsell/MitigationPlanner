@@ -17,6 +17,7 @@ export default function TimelineRow({
   draggedAbility,
   draggedFrom,
   timelineDuration,
+  prepullVisibleSeconds,
 }) {
   return (
     <>
@@ -55,7 +56,7 @@ export default function TimelineRow({
               <div
                 className="absolute overflow-visible rounded pointer-events-none"
                 style={{
-                  left: `${(placement.startTime + placement.prepullVisibleSeconds) * pixelsPerSecond}px`,
+                  left: `${(placement.startTime + prepullVisibleSeconds) * pixelsPerSecond}px`,
                   width: `${visualWidth}px`,
                   top: `${laneTop}px`,
                   height: `${actualHeight}px`,
@@ -118,7 +119,7 @@ export default function TimelineRow({
               }}
               className="absolute rounded cursor-move group ability-block"
               style={{
-                left: `${(placement.startTime + placement.prepullVisibleSeconds) * pixelsPerSecond}px`,
+                left: `${(placement.startTime + prepullVisibleSeconds) * pixelsPerSecond}px`,
                 width: `${visualWidth}px`,
                 top: `${laneTop}px`,
                 height: `${actualHeight}px`,

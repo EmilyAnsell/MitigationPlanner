@@ -45,7 +45,8 @@ export default function MitigationPlanner() {
   const [selectedSlot, setSelectedSlot] = useState("tank1");
 
   const timeline = BOSS_TIMELINES[currentTimeline];
-  const minTime = prepullVisible ? -PRE_PULL_TIMER_DURATION : 0;
+  const prepullVisibleSeconds = prepullVisible ? PRE_PULL_TIMER_DURATION : 0;
+  const minTime = -prepullVisibleSeconds;
   const pixelsPerSecond = PIXELS_PER_SECOND * (zoom / 4);
   const selectedAbilities = getAbilitiesForSlot(partyComp, selectedSlot, JOBS);
 
@@ -149,7 +150,7 @@ export default function MitigationPlanner() {
     if (draggedAbility) {
       const rowRect = e.currentTarget.getBoundingClientRect();
       const x = e.clientX - rowRect.left;
-      const rawTime = Math.max(minTime, x / pixelsPerSecond); //TODO check if this is correct with prepull
+      const rawTime = Math.max(minTime, x / pixelsPerSecond + minTime);
       const startTime = snapToGrid(rawTime - dragOffset);
 
       // Only check if start time is within timeline bounds
@@ -200,6 +201,7 @@ export default function MitigationPlanner() {
         draggedAbility,
         timeline.duration,
         excludeId,
+        prepullVisibleSeconds,
       );
       startTime = snapToValidZone(
         previewToUse.startTime,
@@ -210,7 +212,7 @@ export default function MitigationPlanner() {
       const rowRect = e.currentTarget.getBoundingClientRect();
       const x = e.clientX - rowRect.left;
 
-      const rawTime = Math.max(minTime, x / pixelsPerSecond);
+      const rawTime = Math.max(minTime, x / pixelsPerSecond + minTime);
       const unsnappedTime = Math.max(minTime, snapToGrid(rawTime - dragOffset));
 
       // Snap to valid zones
@@ -221,6 +223,7 @@ export default function MitigationPlanner() {
         draggedAbility,
         timeline.duration,
         excludeId,
+        prepullVisibleSeconds,
       );
       startTime = snapToValidZone(unsnappedTime, validZones, draggedAbility);
     }
@@ -270,6 +273,7 @@ export default function MitigationPlanner() {
           draggedAbility,
           timeline.duration,
           excludeId,
+          prepullVisibleSeconds,
         );
         const startTime = snapToValidZone(
           dragPreview.startTime,
