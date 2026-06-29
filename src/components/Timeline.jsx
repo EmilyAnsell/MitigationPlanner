@@ -266,7 +266,7 @@ export default function Timeline({
                           key={idx}
                           className="absolute w-1 bg-red-500 opacity-30"
                           style={{
-                            left: `${attack.time * pixelsPerSecond}px`,
+                            left: `${(attack.time + prepullVisibleSeconds) * pixelsPerSecond}px`,
                             top: 0,
                             height: "100%",
                           }}
