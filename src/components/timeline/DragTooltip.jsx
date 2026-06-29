@@ -9,6 +9,7 @@ export default function DragTooltip({
   labelWidth,
   placements,
   draggedFrom,
+  prepullVisibleSeconds,
 }) {
   if (!dragPreview || !draggedAbility) {
     return null;
@@ -30,7 +31,7 @@ export default function DragTooltip({
   const placementsWithLanes = calculateAbilityLanes(placementsWithPreview);
 
   const previewWithLane = placementsWithLanes.find(
-    (p) => p.placementId === "temp-preview"
+    (p) => p.placementId === "temp-preview",
   );
 
   // Calculate lane position
@@ -43,9 +44,9 @@ export default function DragTooltip({
 
   return (
     <div
-      className="absolute pointer-events-none bg-gray-900 border border-gray-600 rounded px-2 py-1 text-xs whitespace-nowrap z-20"
+      className="absolute z-20 px-2 py-1 text-xs bg-gray-900 border border-gray-600 rounded pointer-events-none whitespace-nowrap"
       style={{
-        left: `${dragPreview.startTime * pixelsPerSecond + labelWidth - 10}px`,
+        left: `${(dragPreview.startTime + prepullVisibleSeconds) * pixelsPerSecond + labelWidth - 10}px`,
         top: `${laneTop}px`,
         transform: "translateX(-100%)",
       }}

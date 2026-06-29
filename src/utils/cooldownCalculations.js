@@ -1,3 +1,4 @@
+import { PRE_PULL_TIMER_DURATION } from "../data/bossTimelines";
 import { getJobAbilities } from "../data/jobs";
 
 /**
@@ -9,7 +10,7 @@ import { getJobAbilities } from "../data/jobs";
  */
 function simulateChargeUsage(sortedPlacements, ability, maxCharges) {
   let currentCharges = maxCharges;
-  let lastRechargeCheckTime = 0;
+  let lastRechargeCheckTime = -PRE_PULL_TIMER_DURATION;
 
   for (const placement of sortedPlacements) {
     // Calculate how many charges have recharged since last check
@@ -48,14 +49,14 @@ export function checkCooldownConflict(
   placements,
   ability,
   startTime,
-  excludePlacementId = null
+  excludePlacementId = null,
 ) {
   const jobPlacements = placements
     .filter(
       (p) =>
         p.slot === ability.slot &&
         p.id === ability.id &&
-        p.placementId !== excludePlacementId
+        p.placementId !== excludePlacementId,
     )
     .sort((a, b) => a.startTime - b.startTime); // Sort by time
 
@@ -98,9 +99,12 @@ export function getAbilitiesForSlot(partyComp, slot, jobs) {
 }
 
 export function formatTime(seconds) {
+  // Handle negative times for prepull
+  const negative = seconds < 0;
+  seconds = Math.abs(seconds);
   const mins = Math.floor(seconds / 60);
   const secs = seconds % 60;
-  return `${mins}:${String(secs).padStart(2, "0")}`;
+  return `${negative ? "-" : ""}${mins}:${String(secs).padStart(2, "0")}`;
 }
 
 /**

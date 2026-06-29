@@ -5,7 +5,11 @@ import PlayerAbilities from "./components/PlayerAbilities";
 import Timeline from "./components/Timeline";
 import TimelineControls from "./components/TimelineControls";
 import { JOBS } from "./data/jobs";
-import { BOSS_TIMELINES, PIXELS_PER_SECOND } from "./data/bossTimelines";
+import {
+  BOSS_TIMELINES,
+  PIXELS_PER_SECOND,
+  PRE_PULL_TIMER_DURATION,
+} from "./data/bossTimelines";
 import {
   checkCooldownConflict,
   getAbilitiesForSlot,
@@ -34,12 +38,15 @@ export default function MitigationPlanner() {
   const [dragPreview, setDragPreview] = useState(null);
   const [isDraggingOnTimeline, setIsDraggingOnTimeline] = useState(false);
   const [dragOffset, setDragOffset] = useState(0);
+  const [prepullVisible, setPrepullVisible] = useState(false);
   const [currentTimeline, setCurrentTimeline] = useState("dancing-green");
   const [currentPlanId, setCurrentPlanId] = useState(null);
   const [zoom, setZoom] = useState(4);
   const [selectedSlot, setSelectedSlot] = useState("tank1");
 
   const timeline = BOSS_TIMELINES[currentTimeline];
+  const prepullVisibleSeconds = prepullVisible ? PRE_PULL_TIMER_DURATION : 0;
+  const minTime = -prepullVisibleSeconds;
   const pixelsPerSecond = PIXELS_PER_SECOND * (zoom / 4);
   const selectedAbilities = getAbilitiesForSlot(partyComp, selectedSlot, JOBS);
 
@@ -98,7 +105,7 @@ export default function MitigationPlanner() {
       return false;
     }
 
-    if (startTime < 0 || startTime > timeline.duration) {
+    if (startTime < minTime || startTime > timeline.duration) {
       return false;
     }
 
@@ -143,11 +150,11 @@ export default function MitigationPlanner() {
     if (draggedAbility) {
       const rowRect = e.currentTarget.getBoundingClientRect();
       const x = e.clientX - rowRect.left;
-      const rawTime = Math.max(0, x / pixelsPerSecond);
+      const rawTime = Math.max(minTime, x / pixelsPerSecond + minTime);
       const startTime = snapToGrid(rawTime - dragOffset);
 
       // Only check if start time is within timeline bounds
-      if (startTime >= 0 && startTime <= timeline.duration) {
+      if (startTime >= minTime && startTime <= timeline.duration) {
         setDragPreview({
           startTime,
           slot: draggedAbility.slot,
@@ -194,6 +201,7 @@ export default function MitigationPlanner() {
         draggedAbility,
         timeline.duration,
         excludeId,
+        prepullVisibleSeconds,
       );
       startTime = snapToValidZone(
         previewToUse.startTime,
@@ -203,8 +211,9 @@ export default function MitigationPlanner() {
     } else {
       const rowRect = e.currentTarget.getBoundingClientRect();
       const x = e.clientX - rowRect.left;
-      const rawTime = Math.max(0, x / pixelsPerSecond);
-      const unsnappedTime = Math.max(0, snapToGrid(rawTime - dragOffset));
+
+      const rawTime = Math.max(minTime, x / pixelsPerSecond + minTime);
+      const unsnappedTime = Math.max(minTime, snapToGrid(rawTime - dragOffset));
 
       // Snap to valid zones
       const excludeId =
@@ -214,6 +223,7 @@ export default function MitigationPlanner() {
         draggedAbility,
         timeline.duration,
         excludeId,
+        prepullVisibleSeconds,
       );
       startTime = snapToValidZone(unsnappedTime, validZones, draggedAbility);
     }
@@ -239,6 +249,14 @@ export default function MitigationPlanner() {
     }
   };
 
+  /**
+   * Toggle the visibility of the prepull timer on the timeline.
+   * If any abilities are placed in the prepull section, they will be hidden but not removed.
+   */
+  const handleTogglePrepull = () => {
+    setPrepullVisible((v) => !v);
+  };
+
   // Global drop handler
   useEffect(() => {
     const handleGlobalDrop = (e) => {
@@ -255,6 +273,7 @@ export default function MitigationPlanner() {
           draggedAbility,
           timeline.duration,
           excludeId,
+          prepullVisibleSeconds,
         );
         const startTime = snapToValidZone(
           dragPreview.startTime,
@@ -305,8 +324,8 @@ export default function MitigationPlanner() {
   ]);
 
   return (
-    <div className="min-h-screen bg-gray-900 text-white p-6">
-      <div className="max-w-7xl mx-auto">
+    <div className="min-h-screen p-6 text-white bg-gray-900">
+      <div className="mx-auto max-w-7xl">
         <TimelineControls
           currentTimeline={currentTimeline}
           onTimelineChange={handleTimelineChange}
@@ -348,6 +367,8 @@ export default function MitigationPlanner() {
           dragPreview={dragPreview}
           draggedFrom={draggedFrom}
           onClearAll={clearAll}
+          prepullVisible={prepullVisible}
+          onTogglePrepull={handleTogglePrepull}
         />
       </div>
     </div>

@@ -7,6 +7,7 @@ export function calculateValidDropZones(
   ability,
   timelineDuration,
   excludePlacementId = null,
+  prepullVisibleSeconds = 0,
 ) {
   if (!ability) return [{ start: 0, end: timelineDuration }];
 
@@ -22,7 +23,12 @@ export function calculateValidDropZones(
 
   // If no existing placements, entire timeline is valid
   if (existingPlacements.length === 0) {
-    return [{ start: 0, end: timelineDuration - ability.duration }];
+    return [
+      {
+        start: -prepullVisibleSeconds,
+        end: timelineDuration - ability.duration,
+      },
+    ];
   }
 
   const maxCharges = ability.charges || 1;
@@ -33,6 +39,7 @@ export function calculateValidDropZones(
       existingPlacements,
       ability,
       timelineDuration,
+      prepullVisibleSeconds,
     );
   }
 
@@ -42,6 +49,7 @@ export function calculateValidDropZones(
     ability,
     timelineDuration,
     maxCharges,
+    prepullVisibleSeconds,
   );
 }
 
@@ -52,6 +60,7 @@ function calculateSimpleValidZones(
   existingPlacements,
   ability,
   timelineDuration,
+  prepullVisibleSeconds = 0,
 ) {
   const validZones = [];
   const maxEndTime = timelineDuration;
@@ -60,7 +69,7 @@ function calculateSimpleValidZones(
   // - From (startTime - cooldown) to startTime
   // - From startTime to (startTime + cooldown)
   const blockedRanges = existingPlacements.map((p) => ({
-    start: Math.max(0, p.startTime - ability.cooldown),
+    start: Math.max(-prepullVisibleSeconds, p.startTime - ability.cooldown),
     end: Math.min(maxEndTime, p.startTime + ability.cooldown),
   }));
 
@@ -68,7 +77,7 @@ function calculateSimpleValidZones(
   const mergedBlocked = mergeRanges(blockedRanges);
 
   // Valid zones are the gaps between blocked ranges
-  let currentStart = 0;
+  let currentStart = -prepullVisibleSeconds;
 
   for (const blocked of mergedBlocked) {
     if (currentStart < blocked.start) {
@@ -119,13 +128,14 @@ function calculateMultiChargeValidZones(
   ability,
   timelineDuration,
   maxCharges,
+  prepullVisibleSeconds = 0,
 ) {
   const maxEndTime = timelineDuration;
   const validZones = [];
   let currentZoneStart = null;
 
   // Test each second of the timeline
-  for (let time = 0; time <= maxEndTime; time++) {
+  for (let time = -prepullVisibleSeconds; time <= maxEndTime; time++) {
     const isValid = testMultiChargePlacement(
       existingPlacements,
       ability,
