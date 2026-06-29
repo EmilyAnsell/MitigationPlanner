@@ -6,7 +6,7 @@ export function calculateValidDropZones(
   placements,
   ability,
   timelineDuration,
-  excludePlacementId = null
+  excludePlacementId = null,
 ) {
   if (!ability) return [{ start: 0, end: timelineDuration }];
 
@@ -16,7 +16,7 @@ export function calculateValidDropZones(
       (p) =>
         p.slot === ability.slot &&
         p.id === ability.id &&
-        p.placementId !== excludePlacementId
+        p.placementId !== excludePlacementId,
     )
     .sort((a, b) => a.startTime - b.startTime);
 
@@ -32,7 +32,7 @@ export function calculateValidDropZones(
     return calculateSimpleValidZones(
       existingPlacements,
       ability,
-      timelineDuration
+      timelineDuration,
     );
   }
 
@@ -41,7 +41,7 @@ export function calculateValidDropZones(
     existingPlacements,
     ability,
     timelineDuration,
-    maxCharges
+    maxCharges,
   );
 }
 
@@ -51,7 +51,7 @@ export function calculateValidDropZones(
 function calculateSimpleValidZones(
   existingPlacements,
   ability,
-  timelineDuration
+  timelineDuration,
 ) {
   const validZones = [];
   const maxEndTime = timelineDuration;
@@ -118,7 +118,7 @@ function calculateMultiChargeValidZones(
   existingPlacements,
   ability,
   timelineDuration,
-  maxCharges
+  maxCharges,
 ) {
   const maxEndTime = timelineDuration;
   const validZones = [];
@@ -130,7 +130,7 @@ function calculateMultiChargeValidZones(
       existingPlacements,
       ability,
       time,
-      maxCharges
+      maxCharges,
     );
 
     if (isValid) {
@@ -162,7 +162,7 @@ function testMultiChargePlacement(
   existingPlacements,
   ability,
   testTime,
-  maxCharges
+  maxCharges,
 ) {
   // Create temporary placement list with test time
   const allPlacements = [
@@ -203,43 +203,13 @@ function testMultiChargePlacement(
 }
 
 /**
- * Snap a time value to the nearest valid drop zone boundary or stay within zone
- * Also snaps to timeline start (0) and end boundaries
+ * Snap a time value to the end of an ability's cooldown if placed within an invalid zone.
  */
 export function snapToValidZone(time, validZones, _ability) {
+  // TODO - better way to handle no valid zones? For now, just return the time as-is
   if (!validZones || validZones.length === 0) return time;
 
-  // Collect all snap points: zone boundaries + timeline start
-  const snapPoints = [0]; // Always include timeline start
-
-  validZones.forEach((zone) => {
-    snapPoints.push(zone.start, zone.end);
-  });
-
-  // Remove duplicates and sort
-  const uniqueSnapPoints = [...new Set(snapPoints)].sort((a, b) => a - b);
-
-  // Define snap threshold (in seconds) - snap if within this distance
-  const snapThreshold = 2;
-
-  // Find the closest snap point within threshold
-  let closestSnap = null;
-  let closestDistance = Infinity;
-
-  for (const snapPoint of uniqueSnapPoints) {
-    const distance = Math.abs(time - snapPoint);
-    if (distance <= snapThreshold && distance < closestDistance) {
-      closestDistance = distance;
-      closestSnap = snapPoint;
-    }
-  }
-
-  // If we found a close snap point, use it
-  if (closestSnap !== null) {
-    return closestSnap;
-  }
-
-  // Otherwise, check if we're in a valid zone
+  // Check if we're in a valid zone
   for (const zone of validZones) {
     if (time >= zone.start && time <= zone.end) {
       // Already in valid zone, no snapping needed
@@ -254,5 +224,5 @@ export function snapToValidZone(time, validZones, _ability) {
 
   // If we're past all zones, return the time as-is (allow beyond timeline)
   const lastZone = validZones[validZones.length - 1];
-  return time > lastZone.end ? time : lastZone.end;
+  return Math.max(time, lastZone.end);
 }
