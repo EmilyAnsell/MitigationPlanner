@@ -18,13 +18,13 @@ export default function PartyList({
       >
         <button
           onClick={onTogglePrepull}
-          className={`px-2 py-1 text-xs font-semibold rounded w-full mx-2 ${
+          className={`px-2 py-1 text-xs font-semibold rounded w-full mx-2 ring-2 ${
             prepullVisible
-              ? "bg-blue-600 hover:bg-blue-700 text-white"
-              : "bg-gray-600 hover:bg-gray-500 text-gray-200"
+              ? "bg-blue-600 hover:bg-blue-700 ring-blue-700 text-white"
+              : "bg-gray-600 hover:bg-gray-500 ring-gray-500 text-gray-200"
           }`}
         >
-          Pre-pull Timer:
+          Pre-pull Timer
         </button>
       </div>
 
