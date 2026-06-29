@@ -79,7 +79,8 @@ export default function TimeMarkers({
           style={{
             left: `${(time + prepullVisibleSeconds) * pixelsPerSecond + labelWidth}px`,
             bottom: "5px",
-            transform: time === 0 ? "none" : "translateX(-50%)",
+            // If it's the first time marker, shift it to the right so it doesn't overflow the left edge
+            transform: time === timeMarkers[0] ? "none" : "translateX(-50%)",
           }}
         >
           {formatTime(time)}
