@@ -2,6 +2,16 @@ import { useState, useMemo } from "react";
 import { ChevronDown, ChevronUp } from "lucide-react";
 import { JOBS, PARTY_SLOTS, SLOT_LABELS } from "../data/jobs";
 
+/**
+ * Collapsible panel for choosing which job fills each of the 8 party slots.
+ * Each slot renders a job dropdown filtered to the roles valid for that slot,
+ * and swapping a job clears the row's incompatible placements via `onClearRow`.
+ * @param {Object} props
+ * @param {Object} props.partyComp - Map of party slot key to selected job ID (or null)
+ * @param {(comp: Object) => void} props.setPartyComp - Setter for the party composition
+ * @param {(slot: string, isRoleSwap?: boolean, role?: string|null) => boolean} props.onClearRow - Clears a row on job swap; returns false if the user cancels, which aborts the swap
+ * @returns {JSX.Element}
+ */
 export default function PartyComposition({
   partyComp,
   setPartyComp,
@@ -9,6 +19,11 @@ export default function PartyComposition({
 }) {
   const [isExpanded, setIsExpanded] = useState(true);
 
+  /**
+   * Maps a party slot key to its broad role category used for job filtering.
+   * @param {string} slot - Party slot key (e.g. "tank1", "healer2", "dps3")
+   * @returns {"Tank"|"Healer"|"DPS"|null} The slot's role category, or null if unrecognised
+   */
   const getSlotRole = (slot) => {
     if (slot.startsWith("tank")) return "Tank";
     if (slot.startsWith("healer")) return "Healer";
@@ -16,6 +31,12 @@ export default function PartyComposition({
     return null;
   };
 
+  /**
+   * Jobs grouped by role category and sub-category (e.g. Melee/Physical Ranged),
+   * shaped for rendering `<optgroup>`s in the slot dropdowns. Memoised with no
+   * deps since `JOBS` is static.
+   * @type {Object<string, Object<string, Array<[string, Object]>>>}
+   */
   const getJobsByCategory = useMemo(() => {
     const tanks = Object.entries(JOBS).filter(
       ([_, job]) => job.role === "Tank",

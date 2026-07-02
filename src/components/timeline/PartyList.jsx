@@ -2,6 +2,17 @@ import { RotateCcw } from "lucide-react";
 import { PARTY_SLOTS, SLOT_LABELS, JOBS } from "../../data/jobs";
 import { ROW_HEIGHT } from "../../data/bossTimelines";
 
+/**
+ * Frozen left-hand column of the timeline listing each filled party slot with
+ * its slot label, job name, and a button to clear that row's placements.
+ * Rendered as an absolutely positioned overlay so the labels stay in place
+ * while the timeline pans horizontally.
+ * @param {Object} props
+ * @param {Object} props.partyComp - Map of party slot key to selected job ID (or null); slots with no job are omitted
+ * @param {number} props.labelWidth - Width of the frozen label column in pixels
+ * @param {(slot: string) => boolean} props.onClearRow - Clears all placements from the given slot
+ * @returns {JSX.Element}
+ */
 export default function PartyList({ partyComp, labelWidth, onClearRow }) {
   return (
     <div
