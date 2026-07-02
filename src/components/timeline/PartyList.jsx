@@ -1,4 +1,3 @@
-import React from "react";
 import { PARTY_SLOTS, SLOT_LABELS } from "../../data/jobs";
 import { JOBS } from "../../data/jobs";
 import { ROW_HEIGHT } from "../../data/bossTimelines";

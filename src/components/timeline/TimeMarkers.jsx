@@ -1,4 +1,3 @@
-import React from "react";
 import { formatTime } from "../../utils/cooldownCalculations";
 import { calculateLabelLanes } from "../../utils/laneCalculations";
 

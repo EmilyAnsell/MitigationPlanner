@@ -206,7 +206,7 @@ function testMultiChargePlacement(
  * Snap a time value to the nearest valid drop zone boundary or stay within zone
  * Also snaps to timeline start (0) and end boundaries
  */
-export function snapToValidZone(time, validZones, ability) {
+export function snapToValidZone(time, validZones, _ability) {
   if (!validZones || validZones.length === 0) return time;
 
   // Collect all snap points: zone boundaries + timeline start
