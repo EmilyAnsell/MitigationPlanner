@@ -22,7 +22,7 @@ export function processRoleAbilities(roleAbilities) {
   for (const [role, abilities] of Object.entries(roleAbilities)) {
     processed[role] = assignIcons(abilities).map((ability) => ({
       ...ability,
-      isRoleAbility: true,
+      roleAbility: role,
     }));
   }
   return processed;

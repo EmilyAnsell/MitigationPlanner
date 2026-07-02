@@ -71,7 +71,8 @@ export default function PartyComposition({
                   value={partyComp[slot] || ""}
                   onChange={(e) => {
                     if (e.target.value !== partyComp[slot]) {
-                      if (!onClearRow(slot, true)) {
+                      const subRole = JOBS[e.target.value]?.role; // Need to consider melee/phys/magic for role abilities
+                      if (!onClearRow(slot, true, subRole)) {
                         return; // If the user cancels clearing the row, don't change the job selection
                       }
                     }

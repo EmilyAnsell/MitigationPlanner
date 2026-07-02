@@ -239,7 +239,7 @@ export default function MitigationPlanner() {
    * @param {boolean} [isRoleSwap=false] - When true, preserves role abilities and prompts for confirmation; when false, clears all without prompting
    * @returns {boolean} false if the user cancelled the confirmation, true otherwise
    */
-  const clearRow = (slot, isRoleSwap = false) => {
+  const clearRow = (slot, isRoleSwap = false, role = null) => {
     if (placements.some((p) => p.slot === slot)) {
       if (!isRoleSwap) {
         setPlacements(placements.filter((p) => p.slot !== slot));
@@ -251,7 +251,7 @@ export default function MitigationPlanner() {
         )
       ) {
         setPlacements(
-          placements.filter((p) => p.slot !== slot || p.isRoleAbility),
+          placements.filter((p) => p.slot !== slot || p.roleAbility === role),
         );
         return true;
       } else {
