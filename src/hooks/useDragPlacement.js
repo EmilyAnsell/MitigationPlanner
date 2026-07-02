@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { checkCooldownConflict } from "../utils/cooldownCalculations";
 import {
   snapToValidZone,
@@ -50,8 +50,10 @@ export function useDragPlacement({
     setDragOffset(0);
   };
 
-  const getExcludePlacementId = () =>
-    draggedFrom === "timeline" ? draggedAbility.placementId : null;
+  const getExcludePlacementId = useCallback(
+    () => (draggedFrom === "timeline" ? draggedAbility.placementId : null),
+    [draggedFrom, draggedAbility]
+  );
 
   const handleDragStart = (ability, from = "palette", clickOffset = 0) => {
     setDraggedAbility(ability);
@@ -60,46 +62,56 @@ export function useDragPlacement({
     setIsDraggingOnTimeline(false);
   };
 
-  const completePlacement = (startTime, slot) => {
-    if (!draggedAbility || draggedAbility.slot !== slot) {
-      return false;
-    }
-
-    if (startTime < 0 || startTime > timelineDuration) {
-      return false;
-    }
-
-    const excludeId = getExcludePlacementId();
-    const hasConflict = checkCooldownConflict(
-      placements,
-      draggedAbility,
-      startTime,
-      excludeId
-    );
-
-    if (!hasConflict) {
-      if (draggedFrom === "palette") {
-        setPlacements([
-          ...placements,
-          {
-            ...draggedAbility,
-            startTime,
-            placementId: Date.now() + Math.random(),
-          },
-        ]);
-      } else if (draggedFrom === "timeline") {
-        setPlacements(
-          placements.map((p) =>
-            p.placementId === draggedAbility.placementId
-              ? { ...p, startTime }
-              : p
-          )
-        );
+  const completePlacement = useCallback(
+    (startTime, slot) => {
+      if (!draggedAbility || draggedAbility.slot !== slot) {
+        return false;
       }
-      return true;
-    }
-    return false;
-  };
+
+      if (startTime < 0 || startTime > timelineDuration) {
+        return false;
+      }
+
+      const excludeId = getExcludePlacementId();
+      const hasConflict = checkCooldownConflict(
+        placements,
+        draggedAbility,
+        startTime,
+        excludeId
+      );
+
+      if (!hasConflict) {
+        if (draggedFrom === "palette") {
+          setPlacements([
+            ...placements,
+            {
+              ...draggedAbility,
+              startTime,
+              placementId: Date.now() + Math.random(),
+            },
+          ]);
+        } else if (draggedFrom === "timeline") {
+          setPlacements(
+            placements.map((p) =>
+              p.placementId === draggedAbility.placementId
+                ? { ...p, startTime }
+                : p
+            )
+          );
+        }
+        return true;
+      }
+      return false;
+    },
+    [
+      draggedAbility,
+      draggedFrom,
+      timelineDuration,
+      placements,
+      setPlacements,
+      getExcludePlacementId,
+    ]
+  );
 
   const handleDragOver = (e) => {
     e.preventDefault();
@@ -169,8 +181,7 @@ export function useDragPlacement({
           placements,
           ability: draggedAbility,
           timelineDuration,
-          excludePlacementId:
-            draggedFrom === "timeline" ? draggedAbility.placementId : null
+          excludePlacementId: getExcludePlacementId(),
         });
 
         setDragPreview(null);
@@ -204,6 +215,8 @@ export function useDragPlacement({
     placements,
     timelineDuration,
     pixelsPerSecond,
+    completePlacement,
+    getExcludePlacementId,
   ]);
 
   return {
