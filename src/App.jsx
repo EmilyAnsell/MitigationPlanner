@@ -236,7 +236,8 @@ export default function MitigationPlanner() {
   /**
    * Clears ability placements from a party slot.
    * @param {string} slot - Party slot key (e.g. "tank1")
-   * @param {boolean} [isRoleSwap=false] - When true, preserves role abilities and prompts for confirmation; when false, clears all without prompting
+   * @param {boolean} [isRoleSwap=false] - When true, prompts for confirmation and preserves role abilities whose sub-role matches `role`; when false, clears all placements without prompting
+   * @param {string|null} [role=null] - Sub-role of the incoming job (e.g. "Tank", "Melee", "Magical_Ranged"); null (e.g. swapping to "None") preserves nothing
    * @returns {boolean} false if the user cancelled the confirmation, true otherwise
    */
   const clearRow = (slot, isRoleSwap = false, role = null) => {
