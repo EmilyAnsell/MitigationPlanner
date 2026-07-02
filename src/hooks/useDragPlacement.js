@@ -5,15 +5,31 @@ import {
   calculateValidDropZones,
 } from "../utils/validDropZones";
 
-const snapToGrid = (time) => Math.round(time);
+/**
+ * Rounds a raw timeline position to the nearest whole-second grid line
+ * @param {number} time - Raw time in seconds
+ * @returns {number} - Time rounded to the nearest second
+ */
+function snapToGrid(time) {
+  return Math.round(time);
+}
 
-const resolveDropTime = ({
+/**
+ * Snaps a candidate drop time to the nearest valid (non-conflicting) zone for an ability
+ * @param {number} time - Candidate start time in seconds
+ * @param {Array} placements - Existing placements on the timeline
+ * @param {Object} ability - Ability being placed
+ * @param {number} timelineDuration - Total timeline duration in seconds
+ * @param {number|null} excludePlacementId - Placement ID to ignore when checking conflicts (the ability's own existing placement, when moving it)
+ * @returns {number} - Start time snapped to the nearest valid zone
+ */
+function resolveDropTime({
   time,
   placements,
   ability,
   timelineDuration,
   excludePlacementId,
-}) => {
+}) {
   const validZones = calculateValidDropZones(
     placements,
     ability,
@@ -21,10 +37,19 @@ const resolveDropTime = ({
     excludePlacementId
   );
   return snapToValidZone(time, validZones, ability);
-};
+}
 
-// Above helper functions left outside of returned hook since they do not require the state of the hook. May wish to see if it could be slightly beneficial to move others out, or these in.
+// Pure helpers — no hook state, so kept at module scope rather than recreated per render.
 
+/**
+ * Manages drag-and-drop state and handlers for placing abilities on the timeline,
+ * from both the ability palette and existing timeline placements
+ * @param {Array} placements - Current placements on the timeline
+ * @param {Function} setPlacements - Setter for the placements array
+ * @param {number} timelineDuration - Total timeline duration in seconds
+ * @param {number} pixelsPerSecond - Current horizontal scale of the timeline
+ * @returns {Object} - Drag state (draggedAbility, draggedFrom, dragPreview) and handlers (handleDragStart, handleDragOver, handleDragLeave, handleDropOnRow)
+ */
 export function useDragPlacement({
   placements,
   setPlacements,
