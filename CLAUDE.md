@@ -73,6 +73,7 @@ Add the job to `JOBS` in `src/data/jobs.js`. Drop the ability icon PNG into `src
 - **Private module-level helpers** in utility files: `function` declarations (e.g., `simulateChargeUsage`, `mergeRanges`, `calculateSimpleValidZones`) — not arrow functions
 - **Component-internal handlers**: `const` arrow functions (`const handleSave = () => ...`)
 - **Props**: always destructured in the function signature, never accessed via a `props` param. always prefix unused props with `_` to avoid ESLint warnings (e.g. `(_ability)` in `snapToValidZone`) and use '\_' for ignored function parameters as is javascript convention.
+- **JSDoc for non-trivial functions**: a one-line summary followed by `@param {type} name - description` per parameter and `@returns {type} - description` (see `abilityHelpers.js`, `cooldownCalculations.js`, `iconLoader.js`, `useDragPlacement.js`). For a destructured object parameter, document each destructured field as its own flat `@param` (e.g. `@param {number} time - ...`) — do not nest under a `params.field` object wrapper.
 - **Styling**: Tailwind classes for static styles; inline `style={{}}` only for values that require JS computation (positions, widths, colors from data). Never use inline style for something expressible as a Tailwind class.
 - **File extensions**: `.jsx` for React components, `.js` for everything else (hooks, utils, data)
 - **Exports**: named exports for utilities/data; default export for components
