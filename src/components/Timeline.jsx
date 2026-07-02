@@ -205,7 +205,7 @@ export default function Timeline({
                       }}
                       onDragOver={onDragOver}
                       onDragLeave={onDragLeave}
-                      onDrop={(e) => onDropOnRow(e, slot)}
+                      onDrop={onDropOnRow}
                     >
                       {/* Valid drop zones overlay */}
                       <ValidDropZones

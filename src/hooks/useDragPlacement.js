@@ -110,17 +110,15 @@ export function useDragPlacement({
       const rowRect = e.currentTarget.getBoundingClientRect();
       const x = e.clientX - rowRect.left;
       const rawTime = Math.max(0, x / pixelsPerSecond);
-      const startTime = snapToGrid(rawTime - dragOffset);
+      const startTime = Math.min(
+        Math.max(0, snapToGrid(rawTime - dragOffset)),
+        timelineDuration
+      );
 
-      // Only check if start time is within timeline bounds
-      if (startTime >= 0 && startTime <= timelineDuration) {
-        setDragPreview({
-          startTime,
-          slot: draggedAbility.slot,
-        });
-      } else {
-        setDragPreview(null);
-      }
+      setDragPreview({
+        startTime,
+        slot: draggedAbility.slot,
+      });
     }
   };
 
@@ -133,7 +131,7 @@ export function useDragPlacement({
     }
   };
 
-  const handleDropOnRow = (e, slot) => {
+  const handleDropOnRow = (e) => {
     e.preventDefault();
     e.stopPropagation();
 
@@ -142,29 +140,20 @@ export function useDragPlacement({
     setDragPreview(null);
     setIsDraggingOnTimeline(false);
 
-    if (!draggedAbility) return;
-
-    const excludePlacementId = getExcludePlacementId();
-    let time;
-    if (previewToUse && previewToUse.slot === slot) {
-      time = previewToUse.startTime;
-    } else {
-      const rowRect = e.currentTarget.getBoundingClientRect();
-      const x = e.clientX - rowRect.left;
-      const rawTime = Math.max(0, x / pixelsPerSecond);
-      time = Math.max(0, snapToGrid(rawTime - dragOffset));
-      slot = previewToUse.slot; // set the slot to be placed in to be the previewed slot
+    if (!draggedAbility || !previewToUse) {
+      resetDrag();
+      return;
     }
 
     const startTime = resolveDropTime({
-      time,
+      time: previewToUse.startTime,
       placements,
       ability: draggedAbility,
       timelineDuration,
-      excludePlacementId,
+      excludePlacementId: getExcludePlacementId(),
     });
 
-    completePlacement(startTime, slot);
+    completePlacement(startTime, previewToUse.slot);
     resetDrag();
   };
 
