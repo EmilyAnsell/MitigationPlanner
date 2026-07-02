@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import { useState, useEffect } from "react";
 import PartyComposition from "./components/PartyComposition";
 import PlayerSelector from "./components/PlayerSelector";
 import PlayerAbilities from "./components/PlayerAbilities";

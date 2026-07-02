@@ -1,4 +1,3 @@
-import React from "react";
 import { JOBS, SLOT_LABELS } from "../data/jobs";
 
 export default function PlayerAbilities({

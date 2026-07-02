@@ -1,4 +1,4 @@
-import React from "react";
+import { Fragment } from "react";
 import { ROW_HEIGHT } from "../../data/bossTimelines";
 import {
   checkCooldownConflict,
@@ -6,7 +6,7 @@ import {
 } from "../../utils/cooldownCalculations";
 
 export default function TimelineRow({
-  slot,
+  slot: _slot,
   placementsWithLanes,
   pixelsPerSecond,
   onDragStart,
@@ -24,7 +24,7 @@ export default function TimelineRow({
         // Calculate effective duration (clipped to timeline end)
         const effectiveDuration = getEffectiveDuration(
           placement,
-          timelineDuration
+          timelineDuration,
         );
         const visualWidth = effectiveDuration * pixelsPerSecond;
 
@@ -49,11 +49,11 @@ export default function TimelineRow({
           draggedFrom === "timeline";
 
         return (
-          <React.Fragment key={placement.placementId}>
+          <Fragment key={placement.placementId}>
             {/* Original position ghost (shown when dragging) */}
             {isBeingDragged && (
               <div
-                className="absolute rounded pointer-events-none overflow-visible"
+                className="absolute overflow-visible rounded pointer-events-none"
                 style={{
                   left: `${placement.startTime * pixelsPerSecond}px`,
                   width: `${visualWidth}px`,
@@ -75,7 +75,7 @@ export default function TimelineRow({
 
                 {/* Icon in ghost */}
                 {placement.icon && (
-                  <div className="absolute left-0 top-0">
+                  <div className="absolute top-0 left-0">
                     <img
                       src={placement.icon}
                       alt=""
@@ -127,12 +127,12 @@ export default function TimelineRow({
                   placements,
                   placement,
                   placement.startTime,
-                  placement.placementId
+                  placement.placementId,
                 )
                   ? "2px solid red"
                   : isBeingDragged
-                  ? "2px solid white"
-                  : "none",
+                    ? "2px solid white"
+                    : "none",
                 opacity: isBeingDragged ? 0 : 1,
                 overflow: "visible",
               }}
@@ -151,7 +151,7 @@ export default function TimelineRow({
               {/* Icon */}
               {placement.icon && (
                 <div
-                  className="absolute left-0 top-0 pointer-events-none"
+                  className="absolute top-0 left-0 pointer-events-none"
                   style={{
                     zIndex: 10,
                     height: `${actualHeight}px`,
@@ -171,7 +171,7 @@ export default function TimelineRow({
                 </div>
               )}
             </div>
-          </React.Fragment>
+          </Fragment>
         );
       })}
     </>
