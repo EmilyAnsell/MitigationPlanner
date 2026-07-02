@@ -33,6 +33,7 @@ export default function Timeline({
   dragPreview,
   draggedFrom,
   onClearAll,
+  onClearRow,
 }) {
   const timelineContainerRef = useRef(null);
   const timelineWrapperRef = useRef(null);
@@ -277,7 +278,7 @@ export default function Timeline({
         </div>
 
         {/* Party comp column */}
-        <PartyList partyComp={partyComp} labelWidth={labelWidth} />
+        <PartyList partyComp={partyComp} labelWidth={labelWidth} onClearRow={onClearRow} />
       </div>
 
       {/* Tooltip */}

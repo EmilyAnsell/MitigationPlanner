@@ -20,7 +20,10 @@ export function assignIcons(abilities) {
 export function processRoleAbilities(roleAbilities) {
   const processed = {};
   for (const [role, abilities] of Object.entries(roleAbilities)) {
-    processed[role] = assignIcons(abilities);
+    processed[role] = assignIcons(abilities).map((ability) => ({
+      ...ability,
+      roleAbility: role,
+    }));
   }
   return processed;
 }
