@@ -88,8 +88,8 @@ export function useDragPlacement({
   };
 
   const completePlacement = useCallback(
-    (startTime, slot) => {
-      if (!draggedAbility || draggedAbility.slot !== slot) {
+    (startTime) => {
+      if (!draggedAbility) {
         return false;
       }
 
@@ -190,7 +190,7 @@ export function useDragPlacement({
       excludePlacementId: getExcludePlacementId(),
     });
 
-    completePlacement(startTime, previewToUse.slot);
+    completePlacement(startTime);
     resetDrag();
   };
 
@@ -200,7 +200,6 @@ export function useDragPlacement({
       if (isDraggingOnTimeline && draggedAbility && dragPreview) {
         e.preventDefault();
 
-        const slot = draggedAbility.slot;
         const startTime = resolveDropTime({
           time: dragPreview.startTime,
           placements,
@@ -212,7 +211,7 @@ export function useDragPlacement({
         setDragPreview(null);
         setIsDraggingOnTimeline(false);
 
-        completePlacement(startTime, slot);
+        completePlacement(startTime);
         resetDrag();
       }
     };
