@@ -2,7 +2,7 @@ name: Deploy
 
 on:
   push:
-    branches: [release/phase-1]
+    branches: [release/phase-1, feature/CI-CD]
   workflow_dispatch:
 
 jobs:
