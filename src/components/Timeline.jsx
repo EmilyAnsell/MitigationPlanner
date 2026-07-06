@@ -50,6 +50,7 @@ export default function Timeline({
     pixelsPerSecond,
   );
   const labelWidth = 128;
+  const prepullWidth = timeToX(0, prepullVisibleSeconds, pixelsPerSecond);
 
   // Calculate valid drop zones for dragged ability
   const validDropZones = useMemo(() => {
@@ -238,21 +239,21 @@ export default function Timeline({
                     >
                       {/* Prepull section tinting overlay */}
                       {prepullVisibleSeconds > 0 && (
-                        <div
-                          className="absolute inset-y-0 left-0 bg-blue-900 pointer-events-none opacity-20"
-                          style={{
-                            width: `${timeToX(0, prepullVisibleSeconds, pixelsPerSecond)}px`,
-                          }}
-                        />
-                      )}
-                      {/* A t=0 boundary line: */}
-                      {prepullVisibleSeconds > 0 && (
-                        <div
-                          className="absolute inset-y-0 w-px bg-blue-400 pointer-events-none opacity-90"
-                          style={{
-                            left: `${timeToX(0, prepullVisibleSeconds, pixelsPerSecond)}px`,
-                          }}
-                        />
+                        <>
+                          <div
+                            className="absolute inset-y-0 left-0 bg-blue-900 pointer-events-none opacity-20"
+                            style={{
+                              width: `${prepullWidth}px`,
+                            }}
+                          />
+                          {/* A t=0 boundary line: */}
+                          <div
+                            className="absolute inset-y-0 w-px bg-blue-400 pointer-events-none opacity-90"
+                            style={{
+                              left: `${prepullWidth}px`,
+                            }}
+                          />
+                        </>
                       )}
                       {/* Valid drop zones overlay */}
                       <ValidDropZones

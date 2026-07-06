@@ -132,9 +132,9 @@ export function getAbilitiesForSlot(partyComp, slot, jobs) {
 export function formatTime(seconds) {
   // Handle negative times for prepull
   const negative = seconds < 0;
-  seconds = Math.abs(seconds);
-  const mins = Math.floor(seconds / 60);
-  const secs = seconds % 60;
+  const absSeconds = Math.abs(seconds);
+  const mins = Math.floor(absSeconds / 60);
+  const secs = absSeconds % 60;
   return `${negative ? "-" : ""}${mins}:${String(secs).padStart(2, "0")}`;
 }
 
