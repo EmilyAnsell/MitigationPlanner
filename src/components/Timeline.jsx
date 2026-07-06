@@ -39,6 +39,7 @@ export default function Timeline({
   onClearAll,
   prepullVisible,
   onTogglePrepull,
+  onClearRow,
 }) {
   const timelineContainerRef = useRef(null);
   const timelineWrapperRef = useRef(null);
@@ -231,7 +232,7 @@ export default function Timeline({
                       }}
                       onDragOver={onDragOver}
                       onDragLeave={onDragLeave}
-                      onDrop={(e) => onDropOnRow(e, slot)}
+                      onDrop={onDropOnRow}
                     >
                       {/* Prepull section tinting overlay */}
                       {prepullVisibleSeconds > 0 && (
@@ -326,6 +327,7 @@ export default function Timeline({
           labelWidth={labelWidth}
           prepullVisible={prepullVisible}
           onTogglePrepull={onTogglePrepull}
+          onClearRow={onClearRow}
         />
       </div>
 
