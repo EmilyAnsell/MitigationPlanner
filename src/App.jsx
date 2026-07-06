@@ -188,7 +188,7 @@ export default function MitigationPlanner() {
           dragPreview={dragPreview}
           draggedFrom={draggedFrom}
           onClearAll={clearAll}
-          prepullVisible={prepullVisible}
+          prepullVisibleSeconds={prepullVisibleSeconds}
           onTogglePrepull={handleTogglePrepull}
           onClearRow={clearRow}
         />

@@ -65,7 +65,7 @@ export function useDragPlacement({
   const [isDraggingOnTimeline, setIsDraggingOnTimeline] = useState(false);
   const [dragOffset, setDragOffset] = useState(0);
 
-  const minTime = prepullVisibleSeconds === 0 ? 0 : -prepullVisibleSeconds;
+  const minTime = -prepullVisibleSeconds;
 
   /**
    * resetDrag - applies common setting to null for the multiple times drag is reset in this hook

@@ -1,11 +1,7 @@
 import { useRef, useEffect, useState, useMemo } from "react";
 import { RotateCcw } from "lucide-react";
 import { PARTY_SLOTS } from "../data/jobs";
-import {
-  ROW_HEIGHT,
-  PIXELS_PER_SECOND,
-  PRE_PULL_TIMER_DURATION,
-} from "../data/bossTimelines";
+import { ROW_HEIGHT, PIXELS_PER_SECOND } from "../data/bossTimelines";
 import { useTimelineZoom } from "../hooks/useTimelineZoom";
 import { useTimelinePan } from "../hooks/useTimelinePan";
 import { calculateAbilityLanes } from "../utils/laneCalculations";
@@ -37,7 +33,7 @@ export default function Timeline({
   dragPreview,
   draggedFrom,
   onClearAll,
-  prepullVisible,
+  prepullVisibleSeconds,
   onTogglePrepull,
   onClearRow,
 }) {
@@ -47,7 +43,6 @@ export default function Timeline({
   const [tooltipPosition, setTooltipPosition] = useState({ x: 0, y: 0 });
   const [minZoom, setMinZoom] = useState(1);
 
-  const prepullVisibleSeconds = prepullVisible ? PRE_PULL_TIMER_DURATION : 0;
   const timelineWidth =
     (timeline.duration + prepullVisibleSeconds) * pixelsPerSecond;
   const labelWidth = 128;
@@ -325,7 +320,7 @@ export default function Timeline({
         <PartyList
           partyComp={partyComp}
           labelWidth={labelWidth}
-          prepullVisible={prepullVisible}
+          prepullVisible={prepullVisibleSeconds > 0}
           onTogglePrepull={onTogglePrepull}
           onClearRow={onClearRow}
         />
