@@ -134,7 +134,7 @@ export default function MitigationPlanner() {
 
   /**
    * Toggle the visibility of the prepull timer on the timeline.
-   * If any abilities are placed in the prepull section, they will be hidden but not removed.
+   * If any abilities are placed in the prepull section, the section they are active for will be hidden, but the placements will remain.
    */
   const handleTogglePrepull = () => {
     setPrepullVisible((v) => !v);
