@@ -143,7 +143,6 @@ function calculateMultiChargeValidZones(
       ability,
       time,
       maxCharges,
-      -prepullVisibleSeconds,
     );
 
     if (isValid) {

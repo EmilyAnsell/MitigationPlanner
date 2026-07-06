@@ -130,7 +130,6 @@ export default function TimelineRow({
                   placement,
                   placement.startTime,
                   placement.placementId,
-                  prepullVisibleSeconds,
                 )
                   ? "2px solid red"
                   : isBeingDragged

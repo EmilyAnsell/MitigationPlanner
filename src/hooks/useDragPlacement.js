@@ -108,7 +108,6 @@ export function useDragPlacement({
         draggedAbility,
         startTime,
         excludeId,
-        prepullVisibleSeconds,
       );
 
       if (!hasConflict) {
@@ -142,7 +141,6 @@ export function useDragPlacement({
       setPlacements,
       getExcludePlacementId,
       minTime,
-      prepullVisibleSeconds,
     ],
   );
 

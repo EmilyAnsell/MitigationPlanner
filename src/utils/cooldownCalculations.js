@@ -7,7 +7,6 @@ import { getJobAbilities } from "../data/jobs";
  * @param {Object} ability - Ability with charges and cooldown
  * @param {number} testTime - Candidate start time in seconds (negative = prepull)
  * @param {number} maxCharges - Maximum number of charges
- * @param {number} rechargeClockStart - Time recharging is measured from (0, or -prepullVisibleSeconds)
  * @returns {boolean} - True if a charge is available at testTime
  */
 export function canPlaceChargeAt(
@@ -15,7 +14,6 @@ export function canPlaceChargeAt(
   ability,
   testTime,
   maxCharges,
-  rechargeClockStart = 0,
 ) {
   const allPlacements = [
     ...existingPlacements,
@@ -23,10 +21,7 @@ export function canPlaceChargeAt(
   ].sort((a, b) => a.startTime - b.startTime);
 
   let currentCharges = maxCharges;
-  let lastRechargeCheckTime = Math.min(
-    rechargeClockStart,
-    allPlacements[0].startTime,
-  );
+  let lastRechargeCheckTime = allPlacements[0].startTime;
 
   for (const placement of allPlacements) {
     // Calculate how many charges have recharged since last check
@@ -55,12 +50,11 @@ export function canPlaceChargeAt(
 }
 
 /**
- * Determines whether placing an ability at a given time conflicts with its existing placements.
+ * Determines whether placing an ability at a given time conflicts with its existing placements. Handles both single-charge and multi-charge abilities.
  * @param {Array} placements - All current placements on the timeline
  * @param {Object} ability - Ability being placed, with slot, id, cooldown, and optional charges
  * @param {number} startTime - Candidate start time in seconds
  * @param {number|null} excludePlacementId - Placement ID to ignore when checking conflicts (the ability's own existing placement, when moving it)
- * @param {number} prepullVisibleSeconds - (Absolute) seconds of pre-pull time visible on the timeline, used as the recharge clock start for multi-charge abilities
  * @returns {boolean} - True if placing at startTime would conflict with an existing placement
  */
 export function checkCooldownConflict(
@@ -68,7 +62,6 @@ export function checkCooldownConflict(
   ability,
   startTime,
   excludePlacementId = null,
-  prepullVisibleSeconds = 0,
 ) {
   const jobPlacements = placements
     .filter(
@@ -92,13 +85,7 @@ export function checkCooldownConflict(
   }
 
   // For abilities with multiple charges - simulate charge usage
-  return !canPlaceChargeAt(
-    jobPlacements,
-    ability,
-    startTime,
-    maxCharges,
-    -prepullVisibleSeconds,
-  );
+  return !canPlaceChargeAt(jobPlacements, ability, startTime, maxCharges);
 }
 
 /**
