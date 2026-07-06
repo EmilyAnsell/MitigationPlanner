@@ -9,6 +9,7 @@ import {
   calculateValidDropZones,
   snapToValidZone,
 } from "../utils/validDropZones";
+import { timeToX } from "../utils/timelineCoordinates";
 import TimeMarkers from "./timeline/TimeMarkers";
 import TimelineRow from "./timeline/TimelineRow";
 import PartyList from "./timeline/PartyList";
@@ -43,8 +44,11 @@ export default function Timeline({
   const [tooltipPosition, setTooltipPosition] = useState({ x: 0, y: 0 });
   const [minZoom, setMinZoom] = useState(1);
 
-  const timelineWidth =
-    (timeline.duration + prepullVisibleSeconds) * pixelsPerSecond;
+  const timelineWidth = timeToX(
+    timeline.duration,
+    prepullVisibleSeconds,
+    pixelsPerSecond,
+  );
   const labelWidth = 128;
 
   // Calculate valid drop zones for dragged ability
@@ -92,8 +96,11 @@ export default function Timeline({
         const containerWidth =
           timelineWrapperRef.current.clientWidth - labelWidth;
         const basePixelsPerSecond = PIXELS_PER_SECOND;
-        const baseTimelineWidth =
-          (timeline.duration + prepullVisibleSeconds) * basePixelsPerSecond;
+        const baseTimelineWidth = timeToX(
+          timeline.duration,
+          prepullVisibleSeconds,
+          basePixelsPerSecond,
+        );
         const neededZoom = (containerWidth / baseTimelineWidth) * 4;
         const calculatedMinZoom = Math.max(1, Math.ceil(neededZoom * 10) / 10);
 
@@ -234,7 +241,7 @@ export default function Timeline({
                         <div
                           className="absolute inset-y-0 left-0 bg-blue-900 pointer-events-none opacity-20"
                           style={{
-                            width: `${prepullVisibleSeconds * pixelsPerSecond}px`,
+                            width: `${timeToX(0, prepullVisibleSeconds, pixelsPerSecond)}px`,
                           }}
                         />
                       )}
@@ -243,7 +250,7 @@ export default function Timeline({
                         <div
                           className="absolute inset-y-0 w-px bg-blue-400 pointer-events-none opacity-90"
                           style={{
-                            left: `${prepullVisibleSeconds * pixelsPerSecond}px`,
+                            left: `${timeToX(0, prepullVisibleSeconds, pixelsPerSecond)}px`,
                           }}
                         />
                       )}
@@ -262,7 +269,7 @@ export default function Timeline({
                           key={idx}
                           className="absolute w-1 bg-red-500 opacity-30"
                           style={{
-                            left: `${(attack.time + prepullVisibleSeconds) * pixelsPerSecond}px`,
+                            left: `${timeToX(attack.time, prepullVisibleSeconds, pixelsPerSecond)}px`,
                             top: 0,
                             height: "100%",
                           }}

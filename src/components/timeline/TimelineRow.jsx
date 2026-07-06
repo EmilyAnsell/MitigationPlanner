@@ -4,6 +4,7 @@ import {
   checkCooldownConflict,
   getEffectiveDuration,
 } from "../../utils/cooldownCalculations";
+import { timeToX } from "../../utils/timelineCoordinates";
 
 export default function TimelineRow({
   slot: _slot,
@@ -56,7 +57,7 @@ export default function TimelineRow({
               <div
                 className="absolute overflow-visible rounded pointer-events-none"
                 style={{
-                  left: `${(placement.startTime + prepullVisibleSeconds) * pixelsPerSecond}px`,
+                  left: `${timeToX(placement.startTime, prepullVisibleSeconds, pixelsPerSecond)}px`,
                   width: `${visualWidth}px`,
                   top: `${laneTop}px`,
                   height: `${actualHeight}px`,
@@ -119,7 +120,7 @@ export default function TimelineRow({
               }}
               className="absolute rounded cursor-move group ability-block"
               style={{
-                left: `${(placement.startTime + prepullVisibleSeconds) * pixelsPerSecond}px`,
+                left: `${timeToX(placement.startTime, prepullVisibleSeconds, pixelsPerSecond)}px`,
                 width: `${visualWidth}px`,
                 top: `${laneTop}px`,
                 height: `${actualHeight}px`,

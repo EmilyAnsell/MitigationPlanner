@@ -1,4 +1,5 @@
 import { ROW_HEIGHT } from "../../data/bossTimelines";
+import { timeToX } from "../../utils/timelineCoordinates";
 
 export default function ValidDropZones({
   validZones,
@@ -63,7 +64,7 @@ export default function ValidDropZones({
           key={`invalid-${index}`}
           className="absolute pointer-events-none"
           style={{
-            left: `${(zone.start + prepullVisibleSeconds) * pixelsPerSecond}px`,
+            left: `${timeToX(zone.start, prepullVisibleSeconds, pixelsPerSecond)}px`,
             width: `${(zone.end - zone.start) * pixelsPerSecond}px`,
             top: 0,
             height: `${ROW_HEIGHT}px`,

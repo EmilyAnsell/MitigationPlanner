@@ -1,5 +1,6 @@
 import { formatTime } from "../../utils/cooldownCalculations";
 import { calculateLabelLanes } from "../../utils/laneCalculations";
+import { timeToX } from "../../utils/timelineCoordinates";
 
 export default function TimeMarkers({
   timeline,
@@ -32,7 +33,8 @@ export default function TimeMarkers({
 
         // Calculate position, adjusting if it would overflow the right edge
         const idealLeft =
-          (attack.time + prepullVisibleSeconds) * pixelsPerSecond + labelWidth;
+          timeToX(attack.time, prepullVisibleSeconds, pixelsPerSecond) +
+          labelWidth;
         const labelWidthPx = attack.estimatedWidth;
         const timelineRightEdge = timelineWidth + labelWidth;
 
@@ -77,7 +79,7 @@ export default function TimeMarkers({
           key={time}
           className="absolute text-xs text-gray-400"
           style={{
-            left: `${(time + prepullVisibleSeconds) * pixelsPerSecond + labelWidth}px`,
+            left: `${timeToX(time, prepullVisibleSeconds, pixelsPerSecond) + labelWidth}px`,
             bottom: "5px",
             // If it's the first time marker, shift it to the right so it doesn't overflow the left edge
             transform: time === timeMarkers[0] ? "none" : "translateX(-50%)",

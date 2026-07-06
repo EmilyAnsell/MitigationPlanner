@@ -1,5 +1,6 @@
 import { formatTime } from "../../utils/cooldownCalculations";
 import { calculateAbilityLanes } from "../../utils/laneCalculations";
+import { timeToX } from "../../utils/timelineCoordinates";
 import { ROW_HEIGHT } from "../../data/bossTimelines";
 
 export default function DragTooltip({
@@ -46,7 +47,7 @@ export default function DragTooltip({
     <div
       className="absolute z-20 px-2 py-1 text-xs bg-gray-900 border border-gray-600 rounded pointer-events-none whitespace-nowrap"
       style={{
-        left: `${(dragPreview.startTime + prepullVisibleSeconds) * pixelsPerSecond + labelWidth - 10}px`,
+        left: `${timeToX(dragPreview.startTime, prepullVisibleSeconds, pixelsPerSecond) + labelWidth - 10}px`,
         top: `${laneTop}px`,
         transform: "translateX(-100%)",
       }}
