@@ -1,3 +1,5 @@
+import { canPlaceChargeAt } from "./cooldownCalculations";
+
 /**
  * Calculate valid drop zones for an ability considering cooldown conflicts
  * Returns an array of time ranges where the ability can be placed
@@ -136,11 +138,12 @@ function calculateMultiChargeValidZones(
 
   // Test each second of the timeline
   for (let time = -prepullVisibleSeconds; time <= maxEndTime; time++) {
-    const isValid = testMultiChargePlacement(
+    const isValid = canPlaceChargeAt(
       existingPlacements,
       ability,
       time,
       maxCharges,
+      -prepullVisibleSeconds,
     );
 
     if (isValid) {
@@ -163,53 +166,6 @@ function calculateMultiChargeValidZones(
   }
 
   return validZones;
-}
-
-/**
- * Test if a multi-charge ability can be placed at a specific time
- */
-function testMultiChargePlacement(
-  existingPlacements,
-  ability,
-  testTime,
-  maxCharges,
-) {
-  // Create temporary placement list with test time
-  const allPlacements = [
-    ...existingPlacements,
-    { startTime: testTime, placementId: "temp" },
-  ].sort((a, b) => a.startTime - b.startTime);
-
-  // Simulate charge usage
-  let currentCharges = maxCharges;
-  let lastRechargeCheckTime = 0;
-
-  for (const placement of allPlacements) {
-    // Calculate recharged charges
-    const timePassed = placement.startTime - lastRechargeCheckTime;
-    const chargesRecharged = Math.floor(timePassed / ability.cooldown);
-
-    currentCharges = Math.min(maxCharges, currentCharges + chargesRecharged);
-
-    if (chargesRecharged > 0) {
-      lastRechargeCheckTime =
-        lastRechargeCheckTime + chargesRecharged * ability.cooldown;
-    }
-
-    // Try to use a charge
-    if (currentCharges > 0) {
-      currentCharges--;
-      if (placement.placementId === "temp") {
-        return true; // Valid placement
-      }
-    } else {
-      if (placement.placementId === "temp") {
-        return false; // No charge available - invalid
-      }
-    }
-  }
-
-  return false;
 }
 
 /**
