@@ -23,7 +23,7 @@ export default function PartyList({
 }) {
   return (
     <div
-      className="absolute top-0 left-0 bg-gray-800 pointer-events-auto"
+      className="absolute top-0 left-0 bg-gray-800 pointer-events-none"
       style={{ width: `${labelWidth}px` }}
     >
       <div
