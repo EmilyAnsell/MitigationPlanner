@@ -3,6 +3,9 @@ name: Deploy
 on:
   push:
     branches: [release/phase-1, feature/CI-CD]
+  pull_request:
+    branches: [main, release/phase-1]
+    types: [closed]
   workflow_dispatch:
 
 jobs:
