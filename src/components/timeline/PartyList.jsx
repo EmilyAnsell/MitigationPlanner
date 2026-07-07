@@ -7,19 +7,40 @@ import { ROW_HEIGHT } from "../../data/bossTimelines";
  * its slot label, job name, and a button to clear that row's placements.
  * Rendered as an absolutely positioned overlay so the labels stay in place
  * while the timeline pans horizontally.
- * @param {Object} props
- * @param {Object} props.partyComp - Map of party slot key to selected job ID (or null); slots with no job are omitted
- * @param {number} props.labelWidth - Width of the frozen label column in pixels
- * @param {(slot: string) => boolean} props.onClearRow - Clears all placements from the given slot
+ * @param {Object} partyComp - Map of party slot key to selected job ID (or null); slots with no job are omitted
+ * @param {number} labelWidth - Width of the frozen label column in pixels
+ * @param {(slot: string) => boolean} onClearRow - Clears all placements from the given slot
+ * @param {boolean} prepullVisible - Whether the pre-pull timer section is currently shown
+ * @param {() => void} onTogglePrepull - Toggles visibility of the pre-pull timer section
  * @returns {JSX.Element}
  */
-export default function PartyList({ partyComp, labelWidth, onClearRow }) {
+export default function PartyList({
+  partyComp,
+  labelWidth,
+  onClearRow,
+  prepullVisible,
+  onTogglePrepull,
+}) {
   return (
     <div
       className="absolute top-0 left-0 bg-gray-800 pointer-events-none"
       style={{ width: `${labelWidth}px` }}
     >
-      <div style={{ height: "60px", marginBottom: "8px" }} />
+      <div
+        className="flex items-center justify-center pointer-events-auto"
+        style={{ height: "60px", marginBottom: "8px" }}
+      >
+        <button
+          onClick={onTogglePrepull}
+          className={`px-2 py-1 text-xs font-semibold rounded w-full mx-2 ring-2 ${
+            prepullVisible
+              ? "bg-blue-600 hover:bg-blue-700 ring-blue-700 text-white"
+              : "bg-gray-600 hover:bg-gray-500 ring-gray-500 text-gray-200"
+          }`}
+        >
+          Pre-pull Timer
+        </button>
+      </div>
 
       {PARTY_SLOTS.filter((slot) => partyComp[slot] !== null).map((slot) => {
         const jobId = partyComp[slot];

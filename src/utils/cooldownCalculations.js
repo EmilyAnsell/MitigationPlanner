@@ -1,17 +1,29 @@
 import { getJobAbilities } from "../data/jobs";
 
 /**
- * Simulates charge usage over time for multi-charge abilities
- * @param {Array} sortedPlacements - Placements sorted by startTime
+ * Tests whether a multi-charge ability can be used at a given time,
+ * simulating charge consumption and recharge across all placements.
+ * @param {Array} existingPlacements - Other placements of this ability, any order
  * @param {Object} ability - Ability with charges and cooldown
+ * @param {number} testTime - Candidate start time in seconds (negative = prepull)
  * @param {number} maxCharges - Maximum number of charges
- * @returns {boolean} - True if all placements can be executed, false if conflict
+ * @returns {boolean} - True if a charge is available at testTime
  */
-function simulateChargeUsage(sortedPlacements, ability, maxCharges) {
-  let currentCharges = maxCharges;
-  let lastRechargeCheckTime = 0;
+export function canPlaceChargeAt(
+  existingPlacements,
+  ability,
+  testTime,
+  maxCharges,
+) {
+  const allPlacements = [
+    ...existingPlacements,
+    { startTime: testTime, placementId: "temp" },
+  ].sort((a, b) => a.startTime - b.startTime);
 
-  for (const placement of sortedPlacements) {
+  let currentCharges = maxCharges;
+  let lastRechargeCheckTime = allPlacements[0].startTime;
+
+  for (const placement of allPlacements) {
     // Calculate how many charges have recharged since last check
     const timePassed = placement.startTime - lastRechargeCheckTime;
     const chargesRecharged = Math.floor(timePassed / ability.cooldown);
@@ -28,34 +40,35 @@ function simulateChargeUsage(sortedPlacements, ability, maxCharges) {
     // Try to use a charge
     if (currentCharges > 0) {
       currentCharges--;
-      // If this is the new placement we're checking, it's valid
-      if (placement.placementId === "temp") {
-        return false; // No conflict
-      }
     } else {
-      // No charges available
-      if (placement.placementId === "temp") {
-        return true; // Conflict - no charge available
-      }
-      // If an existing placement has no charge something exploded
+      // Inserting testTime here starves a later placement (existing or new) of a charge
+      return false;
     }
   }
 
-  return false;
+  return true;
 }
 
+/**
+ * Determines whether placing an ability at a given time conflicts with its existing placements. Handles both single-charge and multi-charge abilities.
+ * @param {Array} placements - All current placements on the timeline
+ * @param {Object} ability - Ability being placed, with slot, id, cooldown, and optional charges
+ * @param {number} startTime - Candidate start time in seconds
+ * @param {number|null} excludePlacementId - Placement ID to ignore when checking conflicts (the ability's own existing placement, when moving it)
+ * @returns {boolean} - True if placing at startTime would conflict with an existing placement
+ */
 export function checkCooldownConflict(
   placements,
   ability,
   startTime,
-  excludePlacementId = null
+  excludePlacementId = null,
 ) {
   const jobPlacements = placements
     .filter(
       (p) =>
         p.slot === ability.slot &&
         p.id === ability.id &&
-        p.placementId !== excludePlacementId
+        p.placementId !== excludePlacementId,
     )
     .sort((a, b) => a.startTime - b.startTime); // Sort by time
 
@@ -72,15 +85,16 @@ export function checkCooldownConflict(
   }
 
   // For abilities with multiple charges - simulate charge usage
-  // Add the new placement to check into the list temporarily
-  const allPlacements = [
-    ...jobPlacements,
-    { startTime, placementId: "temp" },
-  ].sort((a, b) => a.startTime - b.startTime);
-
-  return simulateChargeUsage(allPlacements, ability, maxCharges);
+  return !canPlaceChargeAt(jobPlacements, ability, startTime, maxCharges);
 }
 
+/**
+ * Resolves the list of abilities available to a party slot, based on the job assigned to it.
+ * @param {Object} partyComp - Map of party slot key to selected job ID (or null)
+ * @param {string} slot - Party slot key (e.g. "tank1")
+ * @param {Object} jobs - JOBS object keyed by job ID
+ * @returns {Array} - Abilities for the slot's job, each annotated with jobId, jobName, color, and slot
+ */
 export function getAbilitiesForSlot(partyComp, slot, jobs) {
   const jobId = partyComp[slot];
   if (!jobId || !jobs[jobId]) return [];
@@ -97,14 +111,25 @@ export function getAbilitiesForSlot(partyComp, slot, jobs) {
   }));
 }
 
+/**
+ * Formats a time in seconds as a m:ss timestamp, prefixing with "-" for negative (pre-pull) times.
+ * @param {number} seconds - Time in seconds; negative values represent pre-pull time
+ * @returns {string} - Formatted timestamp, e.g. "1:05" or "-0:04"
+ */
 export function formatTime(seconds) {
-  const mins = Math.floor(seconds / 60);
-  const secs = seconds % 60;
-  return `${mins}:${String(secs).padStart(2, "0")}`;
+  // Handle negative times for prepull
+  const negative = seconds < 0;
+  const absSeconds = Math.abs(seconds);
+  const mins = Math.floor(absSeconds / 60);
+  const secs = absSeconds % 60;
+  return `${negative ? "-" : ""}${mins}:${String(secs).padStart(2, "0")}`;
 }
 
 /**
- * Get the effective duration of an ability, clipped to timeline end
+ * Get the effective duration of an ability, clipped to timeline end.
+ * @param {Object} placement - Placed ability with startTime and duration
+ * @param {number} timelineDuration - Total timeline duration in seconds
+ * @returns {number} - Duration in seconds, shortened if the placement would otherwise extend past the timeline end
  */
 export function getEffectiveDuration(placement, timelineDuration) {
   const endTime = placement.startTime + placement.duration;

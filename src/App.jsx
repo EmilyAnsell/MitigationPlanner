@@ -5,7 +5,11 @@ import PlayerAbilities from "./components/PlayerAbilities";
 import Timeline from "./components/Timeline";
 import TimelineControls from "./components/TimelineControls";
 import { JOBS } from "./data/jobs";
-import { BOSS_TIMELINES, PIXELS_PER_SECOND } from "./data/bossTimelines";
+import {
+  BOSS_TIMELINES,
+  PIXELS_PER_SECOND,
+  PRE_PULL_TIMER_DURATION,
+} from "./data/bossTimelines";
 import { getAbilitiesForSlot } from "./utils/cooldownCalculations";
 import { loadPlan, savePlan } from "./utils/planStorage";
 import { useDragPlacement } from "./hooks/useDragPlacement";
@@ -23,12 +27,14 @@ export default function MitigationPlanner() {
   });
 
   const [placements, setPlacements] = useState([]);
+  const [prepullVisible, setPrepullVisible] = useState(false);
   const [currentTimeline, setCurrentTimeline] = useState("dancing-green");
   const [currentPlanId, setCurrentPlanId] = useState(null);
   const [zoom, setZoom] = useState(4);
   const [selectedSlot, setSelectedSlot] = useState("tank1");
 
   const timeline = BOSS_TIMELINES[currentTimeline];
+  const prepullVisibleSeconds = prepullVisible ? PRE_PULL_TIMER_DURATION : 0;
   const pixelsPerSecond = PIXELS_PER_SECOND * (zoom / 4);
   const selectedAbilities = getAbilitiesForSlot(partyComp, selectedSlot, JOBS);
 
@@ -45,6 +51,7 @@ export default function MitigationPlanner() {
     setPlacements,
     timelineDuration: timeline.duration,
     pixelsPerSecond,
+    prepullVisibleSeconds,
   });
 
   // Auto-save when placements or party comp changes
@@ -125,6 +132,14 @@ export default function MitigationPlanner() {
     }
   };
 
+  /**
+   * Toggle the visibility of the prepull timer on the timeline.
+   * If any abilities are placed in the prepull section, the section they are active for will be hidden, but the placements will remain.
+   */
+  const handleTogglePrepull = () => {
+    setPrepullVisible((v) => !v);
+  };
+
   return (
     <div className="min-h-screen p-6 text-white bg-gray-900">
       <div className="mx-auto max-w-7xl">
@@ -173,6 +188,8 @@ export default function MitigationPlanner() {
           dragPreview={dragPreview}
           draggedFrom={draggedFrom}
           onClearAll={clearAll}
+          prepullVisibleSeconds={prepullVisibleSeconds}
+          onTogglePrepull={handleTogglePrepull}
           onClearRow={clearRow}
         />
       </div>

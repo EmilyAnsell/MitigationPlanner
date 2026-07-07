@@ -1,3 +1,5 @@
+import { canPlaceChargeAt } from "./cooldownCalculations";
+
 /**
  * Calculate valid drop zones for an ability considering cooldown conflicts
  * Returns an array of time ranges where the ability can be placed
@@ -6,7 +8,8 @@ export function calculateValidDropZones(
   placements,
   ability,
   timelineDuration,
-  excludePlacementId = null
+  excludePlacementId = null,
+  prepullVisibleSeconds = 0,
 ) {
   if (!ability) return [{ start: 0, end: timelineDuration }];
 
@@ -16,13 +19,18 @@ export function calculateValidDropZones(
       (p) =>
         p.slot === ability.slot &&
         p.id === ability.id &&
-        p.placementId !== excludePlacementId
+        p.placementId !== excludePlacementId,
     )
     .sort((a, b) => a.startTime - b.startTime);
 
   // If no existing placements, entire timeline is valid
   if (existingPlacements.length === 0) {
-    return [{ start: 0, end: timelineDuration - ability.duration }];
+    return [
+      {
+        start: -prepullVisibleSeconds,
+        end: timelineDuration - ability.duration,
+      },
+    ];
   }
 
   const maxCharges = ability.charges || 1;
@@ -32,7 +40,8 @@ export function calculateValidDropZones(
     return calculateSimpleValidZones(
       existingPlacements,
       ability,
-      timelineDuration
+      timelineDuration,
+      prepullVisibleSeconds,
     );
   }
 
@@ -41,7 +50,8 @@ export function calculateValidDropZones(
     existingPlacements,
     ability,
     timelineDuration,
-    maxCharges
+    maxCharges,
+    prepullVisibleSeconds,
   );
 }
 
@@ -51,7 +61,8 @@ export function calculateValidDropZones(
 function calculateSimpleValidZones(
   existingPlacements,
   ability,
-  timelineDuration
+  timelineDuration,
+  prepullVisibleSeconds = 0,
 ) {
   const validZones = [];
   const maxEndTime = timelineDuration;
@@ -60,7 +71,7 @@ function calculateSimpleValidZones(
   // - From (startTime - cooldown) to startTime
   // - From startTime to (startTime + cooldown)
   const blockedRanges = existingPlacements.map((p) => ({
-    start: Math.max(0, p.startTime - ability.cooldown),
+    start: Math.max(-prepullVisibleSeconds, p.startTime - ability.cooldown),
     end: Math.min(maxEndTime, p.startTime + ability.cooldown),
   }));
 
@@ -68,7 +79,7 @@ function calculateSimpleValidZones(
   const mergedBlocked = mergeRanges(blockedRanges);
 
   // Valid zones are the gaps between blocked ranges
-  let currentStart = 0;
+  let currentStart = -prepullVisibleSeconds;
 
   for (const blocked of mergedBlocked) {
     if (currentStart < blocked.start) {
@@ -118,19 +129,20 @@ function calculateMultiChargeValidZones(
   existingPlacements,
   ability,
   timelineDuration,
-  maxCharges
+  maxCharges,
+  prepullVisibleSeconds = 0,
 ) {
   const maxEndTime = timelineDuration;
   const validZones = [];
   let currentZoneStart = null;
 
   // Test each second of the timeline
-  for (let time = 0; time <= maxEndTime; time++) {
-    const isValid = testMultiChargePlacement(
+  for (let time = -prepullVisibleSeconds; time <= maxEndTime; time++) {
+    const isValid = canPlaceChargeAt(
       existingPlacements,
       ability,
       time,
-      maxCharges
+      maxCharges,
     );
 
     if (isValid) {
@@ -156,90 +168,13 @@ function calculateMultiChargeValidZones(
 }
 
 /**
- * Test if a multi-charge ability can be placed at a specific time
- */
-function testMultiChargePlacement(
-  existingPlacements,
-  ability,
-  testTime,
-  maxCharges
-) {
-  // Create temporary placement list with test time
-  const allPlacements = [
-    ...existingPlacements,
-    { startTime: testTime, placementId: "temp" },
-  ].sort((a, b) => a.startTime - b.startTime);
-
-  // Simulate charge usage
-  let currentCharges = maxCharges;
-  let lastRechargeCheckTime = 0;
-
-  for (const placement of allPlacements) {
-    // Calculate recharged charges
-    const timePassed = placement.startTime - lastRechargeCheckTime;
-    const chargesRecharged = Math.floor(timePassed / ability.cooldown);
-
-    currentCharges = Math.min(maxCharges, currentCharges + chargesRecharged);
-
-    if (chargesRecharged > 0) {
-      lastRechargeCheckTime =
-        lastRechargeCheckTime + chargesRecharged * ability.cooldown;
-    }
-
-    // Try to use a charge
-    if (currentCharges > 0) {
-      currentCharges--;
-      if (placement.placementId === "temp") {
-        return true; // Valid placement
-      }
-    } else {
-      if (placement.placementId === "temp") {
-        return false; // No charge available - invalid
-      }
-    }
-  }
-
-  return false;
-}
-
-/**
- * Snap a time value to the nearest valid drop zone boundary or stay within zone
- * Also snaps to timeline start (0) and end boundaries
+ * Snap a time value to the end of an ability's cooldown if placed within an invalid zone.
  */
 export function snapToValidZone(time, validZones, _ability) {
+  // TODO - better way to handle no valid zones? For now, just return the time as-is
   if (!validZones || validZones.length === 0) return time;
 
-  // Collect all snap points: zone boundaries + timeline start
-  const snapPoints = [0]; // Always include timeline start
-
-  validZones.forEach((zone) => {
-    snapPoints.push(zone.start, zone.end);
-  });
-
-  // Remove duplicates and sort
-  const uniqueSnapPoints = [...new Set(snapPoints)].sort((a, b) => a - b);
-
-  // Define snap threshold (in seconds) - snap if within this distance
-  const snapThreshold = 2;
-
-  // Find the closest snap point within threshold
-  let closestSnap = null;
-  let closestDistance = Infinity;
-
-  for (const snapPoint of uniqueSnapPoints) {
-    const distance = Math.abs(time - snapPoint);
-    if (distance <= snapThreshold && distance < closestDistance) {
-      closestDistance = distance;
-      closestSnap = snapPoint;
-    }
-  }
-
-  // If we found a close snap point, use it
-  if (closestSnap !== null) {
-    return closestSnap;
-  }
-
-  // Otherwise, check if we're in a valid zone
+  // Check if we're in a valid zone
   for (const zone of validZones) {
     if (time >= zone.start && time <= zone.end) {
       // Already in valid zone, no snapping needed
@@ -254,5 +189,5 @@ export function snapToValidZone(time, validZones, _ability) {
 
   // If we're past all zones, return the time as-is (allow beyond timeline)
   const lastZone = validZones[validZones.length - 1];
-  return time > lastZone.end ? time : lastZone.end;
+  return Math.max(time, lastZone.end);
 }

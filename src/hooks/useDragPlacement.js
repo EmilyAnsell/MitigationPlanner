@@ -29,12 +29,14 @@ function resolveDropTime({
   ability,
   timelineDuration,
   excludePlacementId,
+  prepullVisibleSeconds,
 }) {
   const validZones = calculateValidDropZones(
     placements,
     ability,
     timelineDuration,
-    excludePlacementId
+    excludePlacementId,
+    prepullVisibleSeconds,
   );
   return snapToValidZone(time, validZones, ability);
 }
@@ -55,6 +57,7 @@ export function useDragPlacement({
   setPlacements,
   timelineDuration,
   pixelsPerSecond,
+  prepullVisibleSeconds,
 }) {
   const [draggedAbility, setDraggedAbility] = useState(null);
   const [draggedFrom, setDraggedFrom] = useState(null);
@@ -62,9 +65,11 @@ export function useDragPlacement({
   const [isDraggingOnTimeline, setIsDraggingOnTimeline] = useState(false);
   const [dragOffset, setDragOffset] = useState(0);
 
+  const minTime = -prepullVisibleSeconds;
+
   /**
    * resetDrag - applies common setting to null for the multiple times drag is reset in this hook
-   * The following are typically also reset before this, but not consistently. 
+   * The following are typically also reset before this, but not consistently.
    * Further investigation could reveal if it's fine to add these here and remove repeats in code.
    * setDragPreview(null);
    * setIsDraggingOnTimeline(false);
@@ -77,7 +82,7 @@ export function useDragPlacement({
 
   const getExcludePlacementId = useCallback(
     () => (draggedFrom === "timeline" ? draggedAbility.placementId : null),
-    [draggedFrom, draggedAbility]
+    [draggedFrom, draggedAbility],
   );
 
   const handleDragStart = (ability, from = "palette", clickOffset = 0) => {
@@ -93,7 +98,7 @@ export function useDragPlacement({
         return false;
       }
 
-      if (startTime < 0 || startTime > timelineDuration) {
+      if (startTime < minTime || startTime > timelineDuration) {
         return false;
       }
 
@@ -102,7 +107,7 @@ export function useDragPlacement({
         placements,
         draggedAbility,
         startTime,
-        excludeId
+        excludeId,
       );
 
       if (!hasConflict) {
@@ -120,8 +125,8 @@ export function useDragPlacement({
             placements.map((p) =>
               p.placementId === draggedAbility.placementId
                 ? { ...p, startTime }
-                : p
-            )
+                : p,
+            ),
           );
         }
         return true;
@@ -135,7 +140,8 @@ export function useDragPlacement({
       placements,
       setPlacements,
       getExcludePlacementId,
-    ]
+      minTime,
+    ],
   );
 
   const handleDragOver = (e) => {
@@ -146,10 +152,10 @@ export function useDragPlacement({
     if (draggedAbility) {
       const rowRect = e.currentTarget.getBoundingClientRect();
       const x = e.clientX - rowRect.left;
-      const rawTime = Math.max(0, x / pixelsPerSecond);
+      const rawTime = Math.max(minTime, x / pixelsPerSecond + minTime);
       const startTime = Math.min(
-        Math.max(0, snapToGrid(rawTime - dragOffset)),
-        timelineDuration
+        Math.max(minTime, snapToGrid(rawTime - dragOffset)),
+        timelineDuration,
       );
 
       setDragPreview({
@@ -188,6 +194,7 @@ export function useDragPlacement({
       ability: draggedAbility,
       timelineDuration,
       excludePlacementId: getExcludePlacementId(),
+      prepullVisibleSeconds,
     });
 
     completePlacement(startTime);
@@ -206,6 +213,7 @@ export function useDragPlacement({
           ability: draggedAbility,
           timelineDuration,
           excludePlacementId: getExcludePlacementId(),
+          prepullVisibleSeconds,
         });
 
         setDragPreview(null);
@@ -241,6 +249,7 @@ export function useDragPlacement({
     pixelsPerSecond,
     completePlacement,
     getExcludePlacementId,
+    prepullVisibleSeconds,
   ]);
 
   return {
