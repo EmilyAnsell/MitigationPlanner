@@ -9,6 +9,7 @@ import {
   calculateValidDropZones,
   snapToValidZone,
 } from "../utils/validDropZones";
+import { timeToX } from "../utils/timelineCoordinates";
 import TimeMarkers from "./timeline/TimeMarkers";
 import TimelineRow from "./timeline/TimelineRow";
 import PartyList from "./timeline/PartyList";
@@ -33,6 +34,9 @@ export default function Timeline({
   dragPreview,
   draggedFrom,
   onClearAll,
+  prepullVisibleSeconds,
+  onTogglePrepull,
+  onClearRow,
 }) {
   const timelineContainerRef = useRef(null);
   const timelineWrapperRef = useRef(null);
@@ -40,8 +44,13 @@ export default function Timeline({
   const [tooltipPosition, setTooltipPosition] = useState({ x: 0, y: 0 });
   const [minZoom, setMinZoom] = useState(1);
 
-  const timelineWidth = timeline.duration * pixelsPerSecond;
+  const timelineWidth = timeToX(
+    timeline.duration,
+    prepullVisibleSeconds,
+    pixelsPerSecond,
+  );
   const labelWidth = 128;
+  const prepullWidth = timeToX(0, prepullVisibleSeconds, pixelsPerSecond);
 
   // Calculate valid drop zones for dragged ability
   const validDropZones = useMemo(() => {
@@ -54,9 +63,16 @@ export default function Timeline({
       placements,
       draggedAbility,
       timeline.duration,
-      excludeId
+      excludeId,
+      prepullVisibleSeconds,
     );
-  }, [draggedAbility, placements, timeline.duration, draggedFrom]);
+  }, [
+    draggedAbility,
+    placements,
+    timeline.duration,
+    draggedFrom,
+    prepullVisibleSeconds,
+  ]);
 
   // Snap drag preview to valid zones
   const snappedDragPreview = useMemo(() => {
@@ -65,7 +81,7 @@ export default function Timeline({
     const snappedTime = snapToValidZone(
       dragPreview.startTime,
       validDropZones,
-      draggedAbility
+      draggedAbility,
     );
 
     return {
@@ -81,8 +97,11 @@ export default function Timeline({
         const containerWidth =
           timelineWrapperRef.current.clientWidth - labelWidth;
         const basePixelsPerSecond = PIXELS_PER_SECOND;
-        const baseTimelineWidth = timeline.duration * basePixelsPerSecond;
-
+        const baseTimelineWidth = timeToX(
+          timeline.duration,
+          prepullVisibleSeconds,
+          basePixelsPerSecond,
+        );
         const neededZoom = (containerWidth / baseTimelineWidth) * 4;
         const calculatedMinZoom = Math.max(1, Math.ceil(neededZoom * 10) / 10);
 
@@ -98,7 +117,13 @@ export default function Timeline({
     window.addEventListener("resize", updateMinZoom);
 
     return () => window.removeEventListener("resize", updateMinZoom);
-  }, [timeline.duration, zoom, onZoomChange, labelWidth]);
+  }, [
+    timeline.duration,
+    zoom,
+    onZoomChange,
+    labelWidth,
+    prepullVisibleSeconds,
+  ]);
 
   // Use custom hooks for zoom and pan
   useTimelineZoom(timelineContainerRef, zoom, onZoomChange, minZoom);
@@ -118,19 +143,23 @@ export default function Timeline({
     return 300;
   }, [pixelsPerSecond]);
 
-  const timeMarkers = useMemo(
-    () =>
-      Array.from(
-        { length: Math.floor(timeline.duration / markerInterval) + 1 },
-        (_, i) => i * markerInterval
-      ),
-    [timeline.duration, markerInterval]
-  );
+  const timeMarkers = useMemo(() => {
+    const prepullMarkers = Array.from(
+      { length: Math.floor(prepullVisibleSeconds / markerInterval) },
+      // Calculating with -(k + 1) because we start with the first marker at a negative time, not a second 0
+      (_, k) => -(k + 1) * markerInterval,
+    ).reverse();
+    const timelineMarkers = Array.from(
+      { length: Math.floor(timeline.duration / markerInterval) + 1 },
+      (_, k) => k * markerInterval,
+    );
+    return [...prepullMarkers, ...timelineMarkers];
+  }, [prepullVisibleSeconds, timeline.duration, markerInterval]);
 
   return (
-    <div className="bg-gray-800 rounded-lg p-4">
+    <div className="p-4 bg-gray-800 rounded-lg">
       {/* Timeline title & clear button */}
-      <div className="flex justify-between items-center mb-3">
+      <div className="flex items-center justify-between mb-3">
         <h2 className="text-xl font-semibold">
           Boss Timeline - {timeline.name}{" "}
           <span className="text-sm text-gray-400">
@@ -140,7 +169,7 @@ export default function Timeline({
 
         <button
           onClick={onClearAll}
-          className="flex items-center gap-2 px-3 py-1 bg-red-600 hover:bg-red-700 rounded text-sm"
+          className="flex items-center gap-2 px-3 py-1 text-sm bg-red-600 rounded hover:bg-red-700"
         >
           <RotateCcw size={14} />
           Clear Timeline
@@ -172,6 +201,7 @@ export default function Timeline({
             pixelsPerSecond={pixelsPerSecond}
             labelWidth={labelWidth}
             timelineWidth={timelineWidth}
+            prepullVisibleSeconds={prepullVisibleSeconds}
           />
 
           {/* Timeline rows */}
@@ -179,7 +209,7 @@ export default function Timeline({
             {PARTY_SLOTS.filter((slot) => partyComp[slot] !== null).map(
               (slot) => {
                 const slotPlacements = placements.filter(
-                  (p) => p.slot === slot
+                  (p) => p.slot === slot,
                 );
 
                 const placementsWithLanes =
@@ -193,7 +223,7 @@ export default function Timeline({
                   >
                     {/* Drop zone */}
                     <div
-                      className="relative bg-gray-700 rounded overflow-hidden"
+                      className="relative overflow-hidden bg-gray-700 rounded"
                       style={{
                         width: `${timelineWidth}px`,
                         height: `${ROW_HEIGHT}px`,
@@ -205,30 +235,47 @@ export default function Timeline({
                       }}
                       onDragOver={onDragOver}
                       onDragLeave={onDragLeave}
-                      onDrop={(e) => onDropOnRow(e, slot)}
+                      onDrop={onDropOnRow}
                     >
+                      {/* Prepull section tinting overlay */}
+                      {prepullVisibleSeconds > 0 && (
+                        <>
+                          <div
+                            className="absolute inset-y-0 left-0 bg-blue-900 pointer-events-none opacity-20"
+                            style={{
+                              width: `${prepullWidth}px`,
+                            }}
+                          />
+                          {/* A t=0 boundary line: */}
+                          <div
+                            className="absolute inset-y-0 w-px bg-blue-400 pointer-events-none opacity-90"
+                            style={{
+                              left: `${prepullWidth}px`,
+                            }}
+                          />
+                        </>
+                      )}
                       {/* Valid drop zones overlay */}
                       <ValidDropZones
                         validZones={validDropZones}
                         pixelsPerSecond={pixelsPerSecond}
                         timelineDuration={timeline.duration}
+                        prepullVisibleSeconds={prepullVisibleSeconds}
                         slot={slot}
                         draggedAbility={draggedAbility}
                       />
-
                       {/* Boss attack vertical lines */}
                       {timeline.attacks.map((attack, idx) => (
                         <div
                           key={idx}
                           className="absolute w-1 bg-red-500 opacity-30"
                           style={{
-                            left: `${attack.time * pixelsPerSecond}px`,
+                            left: `${timeToX(attack.time, prepullVisibleSeconds, pixelsPerSecond)}px`,
                             top: 0,
                             height: "100%",
                           }}
                         />
                       ))}
-
                       {/* Click and drag preview */}
                       <DragPreview
                         dragPreview={snappedDragPreview}
@@ -237,9 +284,8 @@ export default function Timeline({
                         draggedFrom={draggedFrom}
                         pixelsPerSecond={pixelsPerSecond}
                         placements={slotPlacements}
-                        showTooltip={false}
+                        prepullVisibleSeconds={prepullVisibleSeconds}
                       />
-
                       {/* Placed abilities */}
                       <TimelineRow
                         slot={slot}
@@ -253,6 +299,7 @@ export default function Timeline({
                         draggedAbility={draggedAbility}
                         draggedFrom={draggedFrom}
                         timelineDuration={timeline.duration}
+                        prepullVisibleSeconds={prepullVisibleSeconds}
                       />
                     </div>
 
@@ -267,17 +314,24 @@ export default function Timeline({
                           labelWidth={labelWidth}
                           placements={slotPlacements}
                           draggedFrom={draggedFrom}
+                          prepullVisibleSeconds={prepullVisibleSeconds}
                         />
                       )}
                   </div>
                 );
-              }
+              },
             )}
           </div>
         </div>
 
         {/* Party comp column */}
-        <PartyList partyComp={partyComp} labelWidth={labelWidth} />
+        <PartyList
+          partyComp={partyComp}
+          labelWidth={labelWidth}
+          prepullVisible={prepullVisibleSeconds > 0}
+          onTogglePrepull={onTogglePrepull}
+          onClearRow={onClearRow}
+        />
       </div>
 
       {/* Tooltip */}

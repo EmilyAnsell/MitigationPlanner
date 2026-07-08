@@ -1,4 +1,5 @@
 import { ROW_HEIGHT } from "../../data/bossTimelines";
+import { timeToX } from "../../utils/timelineCoordinates";
 
 export default function ValidDropZones({
   validZones,
@@ -6,6 +7,7 @@ export default function ValidDropZones({
   timelineDuration,
   slot,
   draggedAbility,
+  prepullVisibleSeconds,
 }) {
   // Only show zones if we're dragging an ability
   if (!validZones || !draggedAbility) {
@@ -33,7 +35,7 @@ export default function ValidDropZones({
 
   // For the dragged ability's slot, show invalid zones
   const invalidZones = [];
-  let lastEnd = 0;
+  let lastEnd = -prepullVisibleSeconds;
 
   validZones.forEach((zone) => {
     // Add invalid zone before this valid zone
@@ -62,7 +64,7 @@ export default function ValidDropZones({
           key={`invalid-${index}`}
           className="absolute pointer-events-none"
           style={{
-            left: `${zone.start * pixelsPerSecond}px`,
+            left: `${timeToX(zone.start, prepullVisibleSeconds, pixelsPerSecond)}px`,
             width: `${(zone.end - zone.start) * pixelsPerSecond}px`,
             top: 0,
             height: `${ROW_HEIGHT}px`,

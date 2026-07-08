@@ -65,3 +65,4 @@ export const BOSS_TIMELINES = {
 
 export const PIXELS_PER_SECOND = 4;
 export const ROW_HEIGHT = 60;
+export const PRE_PULL_TIMER_DURATION = 15;
