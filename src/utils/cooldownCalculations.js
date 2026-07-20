@@ -1,19 +1,19 @@
 import { getJobAbilities } from "../data/jobs";
 
 /**
- * Tests whether a multi-charge ability can be used at a given time,
+ * Tests whether a single or multi-charge ability can be used at a given time,
  * simulating charge consumption and recharge across all placements.
  * @param {Array} existingPlacements - Other placements of this ability, any order
  * @param {Object} ability - Ability with charges and cooldown
  * @param {number} testTime - Candidate start time in seconds (negative = prepull)
- * @param {number} maxCharges - Maximum number of charges
+ * @param {number} maxCharges - Maximum number of charges. Defaults to 1 for single-charge abilities.
  * @returns {boolean} - True if a charge is available at testTime
  */
-export function canPlaceChargeAt(
+export function canPlaceAbilityAt(
   existingPlacements,
   ability,
   testTime,
-  maxCharges,
+  maxCharges = 1,
 ) {
   const allPlacements = [
     ...existingPlacements,
@@ -57,7 +57,7 @@ export function canPlaceChargeAt(
  * @param {number|null} excludePlacementId - Placement ID to ignore when checking conflicts (the ability's own existing placement, when moving it)
  * @returns {boolean} - True if placing at startTime would conflict with an existing placement
  */
-export function checkCooldownConflict(
+export function hasCooldownConflict(
   placements,
   ability,
   startTime,
@@ -72,20 +72,9 @@ export function checkCooldownConflict(
     )
     .sort((a, b) => a.startTime - b.startTime); // Sort by time
 
-  // If ability has no charges or only 1 charge, use original logic
+  // Use logic in canPlaceAbilityAt to determine if an ability can be placed - covered single and multi-charge abilities
   const maxCharges = ability.charges || 1;
-  if (maxCharges === 1) {
-    for (const placement of jobPlacements) {
-      const cooldownEnd = placement.startTime + ability.cooldown;
-      if (startTime < cooldownEnd && startTime >= placement.startTime) {
-        return true;
-      }
-    }
-    return false;
-  }
-
-  // For abilities with multiple charges - simulate charge usage
-  return !canPlaceChargeAt(jobPlacements, ability, startTime, maxCharges);
+  return !canPlaceAbilityAt(jobPlacements, ability, startTime, maxCharges);
 }
 
 /**

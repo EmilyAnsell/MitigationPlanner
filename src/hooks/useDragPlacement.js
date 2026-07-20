@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
-import { checkCooldownConflict } from "../utils/cooldownCalculations";
+import { hasCooldownConflict } from "../utils/cooldownCalculations";
 import {
   snapToValidZone,
   calculateValidDropZones,
@@ -103,7 +103,7 @@ export function useDragPlacement({
       }
 
       const excludeId = getExcludePlacementId();
-      const hasConflict = checkCooldownConflict(
+      const hasConflict = hasCooldownConflict(
         placements,
         draggedAbility,
         startTime,

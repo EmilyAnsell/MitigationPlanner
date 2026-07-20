@@ -1,7 +1,7 @@
 import { Fragment } from "react";
 import { ROW_HEIGHT } from "../../data/bossTimelines";
 import {
-  checkCooldownConflict,
+  hasCooldownConflict,
   getEffectiveDuration,
 } from "../../utils/cooldownCalculations";
 import { timeToX } from "../../utils/timelineCoordinates";
@@ -125,7 +125,7 @@ export default function TimelineRow({
                 top: `${laneTop}px`,
                 height: `${actualHeight}px`,
                 backgroundColor: placement.color,
-                border: checkCooldownConflict(
+                border: hasCooldownConflict(
                   placements,
                   placement,
                   placement.startTime,
