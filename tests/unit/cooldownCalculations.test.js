@@ -148,6 +148,27 @@ describe("canPlaceAbilityAt", () => {
       canPlaceAbilityAt(existingPlacements, ability, testTime, maxCharges),
     ).toBe(false);
   });
+
+  test("sorts placements internally so out-of-order input is handled", () => {
+    const existingPlacements = [
+      {
+        id: "rampart",
+        name: "Rampart",
+        slot: "tank1",
+        cooldown: 90,
+        duration: 20,
+        startTime: 100, // later than the candidate time below, so input is out of order
+      },
+    ];
+    const ability = {
+      slot: "tank1",
+      id: "rampart",
+      cooldown: 90,
+      duration: 20,
+    };
+    const testTime = 10; // one cooldown (90s) before the placed Rampart, so a charge is free
+    expect(canPlaceAbilityAt(existingPlacements, ability, testTime)).toBe(true);
+  });
 });
 
 describe("hasCooldownConflict", () => {
@@ -287,6 +308,45 @@ describe("hasCooldownConflict", () => {
         excludePlacementId,
       ),
     ).toBe(true);
+  });
+
+  test("no conflict when the same ability is placed in a different party slot", () => {
+    const ability = {
+      slot: "tank2",
+      id: "rampart",
+      cooldown: 90,
+      duration: 20,
+    };
+    const startTime = 10; // would conflict if this were tank1
+    expect(hasCooldownConflict(placements, ability, startTime, null)).toBe(
+      false,
+    );
+  });
+
+  test("no conflict when a different ability shares the slot and start time", () => {
+    const ability = {
+      slot: "tank1",
+      id: "reprisal",
+      cooldown: 60,
+      duration: 15,
+    };
+    const startTime = 6; // same slot and time as the placed Rampart
+    expect(hasCooldownConflict(placements, ability, startTime, null)).toBe(
+      false,
+    );
+  });
+
+  test("conflict detected when a pre-pull placement falls within cooldown of an on-pull placement", () => {
+    const ability = {
+      slot: "tank1",
+      id: "rampart",
+      cooldown: 90,
+      duration: 20,
+    };
+    const startTime = -5; // 11s before the placed Rampart at t=6, inside its 90s cooldown
+    expect(hasCooldownConflict(placements, ability, startTime, null)).toBe(
+      true,
+    );
   });
 });
 
