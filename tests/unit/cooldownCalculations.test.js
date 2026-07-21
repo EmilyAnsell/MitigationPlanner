@@ -9,7 +9,9 @@ import { getJobAbilities } from "../../src/data/jobs";
 
 /**
  * Mocking a minimum JOBS object for testing purposes.
- * @returns jobs object with a few sample jobs.
+ * Doubles as a source for the mocked getJobAbilities function.
+ * Empty jobs are included as an example of the structure of the JOBS object, and in case future tests need to add abilities for those jobs.
+ * @returns {Object} - Mocked JOBS object with sample jobs and abilities.
  */
 function mockJOBS() {
   const jobs = {
