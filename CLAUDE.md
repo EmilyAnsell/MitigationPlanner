@@ -9,16 +9,29 @@ npm run dev       # start local dev server (Vite, hot reload)
 npm run build     # production build → dist/
 npm run lint      # ESLint
 npm run deploy    # build + push to GitHub Pages
+npm run test      # run all tests (Vitest, watch mode)
+npm run test:run  # run all tests once (CI)
+npm run test:ui   # Vitest UI, useful for debugging
+npm run test -- tests/unit/cooldownCalculations.test.js  # single file
+npm run test -- --project unit                           # one project only
 ```
 
-No test suite exists yet. The recommended stack for adding tests is **Vitest + React Testing Library** (see below).
+### Tests
 
-### Adding tests (when set up)
+Testing uses **Vitest**. Two projects are configured in `vitest.config.js`:
 
-```bash
-npm run test           # run all tests
-npm run test -- path/to/file.test.js  # run a single test file
-```
+- **`unit`** — `tests/unit/**/*.test.js`, `node` environment. For utilities, hooks, and data (`src/utils`, `src/hooks`, `src/data`).
+- **`browser`** — `tests/browser/**/*.test.js`, real Firefox via `@vitest/browser-playwright` + React Testing Library. For React components.
+
+`tests/unit/cooldownCalculations.test.js` is the reference example for testing a utility file. Follow its conventions:
+
+- **Globals are enabled** (`globals: true`) — use `describe`, `test`, `expect`, `beforeEach`/`afterEach`, and `vi` directly. Import only the functions under test.
+- **One top-level `describe` per exported function.** Test names state the condition and expected result (e.g. "no conflict when ability is placed outside of cooldown of a placed ability").
+- **`test.each` for pure input→output mappings** — prefer the object-table form with a `$description` in the title. Use separate `test` blocks when cases need different setup or assertions.
+- **Mock sibling modules with `vi.mock`**, and reset in an `afterEach` with `vi.resetAllMocks()` (resets return values; `clearAllMocks` only clears call history) so a mocked return value from one test can't leak into the next.
+- **Cover boundaries and edge cases** — exact cooldown end, pre-pull (negative) times, zero/null durations, multi-charge recharge.
+- **Test the reachable domain; pin invariants at the layer that enforces them.** e.g. placements past the timeline end are rejected in `useDragPlacement`, so `getEffectiveDuration` is not tested for that unreachable input.
+- Do not edit the code being tested when writing tests, especially not in order to make a test pass. If you find a bug, flag it in an issue, write a test for the expected behavior, and fix the bug in a separate PR.
 
 ## Architecture
 
@@ -77,10 +90,10 @@ Add the job to `JOBS` in `src/data/jobs.js`. Drop the ability icon PNG into `src
 - **Styling**: Tailwind classes for static styles; inline `style={{}}` only for values that require JS computation (positions, widths, colors from data). Never use inline style for something expressible as a Tailwind class.
 - **File extensions**: `.jsx` for React components, `.js` for everything else (hooks, utils, data)
 - **Exports**: named exports for utilities/data; default export for components
+- **Test coverage**: Unit and e2e tests are new to this project. Not everything needs to be covered now, but when planning to touch a component or function it must have existing tests in place before modifying the code to be tested.
+- **Test editing**: Never edit or remove a test when working on core code changes in order to make a failing test pass. If the expected functionality of something being tested is being changed, rely on a human developer to make the call to modify tests.
 
 ### Suggested conventions not yet consistently applied
-
-- **Drop `import React`** — Vite's `@vitejs/plugin-react` uses the automatic JSX runtime, so `import React from "react"` is unnecessary boilerplate in every component file. Only import specific hooks (`useState`, `useMemo`, etc.) as needed.
 
 - **Don't pass raw state setters as props** — `TimelineRow` receives `setHoveredAbility` and `setTooltipPosition` directly. Prefer wrapping in a named handler at the call site (`onHoverAbility`) so components don't take implicit ownership of parent state.
 
