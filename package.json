@@ -13,7 +13,9 @@
     "deploy": "gh-pages -d dist",
     "test": "vitest",
     "test:ui": "vitest --ui",
-    "test:run": "vitest run"
+    "test:run": "vitest run",
+    "test:unit": "vitest run -- --project unit",
+    "test:int": "vitest run -- --project browser"
   },
   "dependencies": {
     "lucide-react": "^0.554.0",

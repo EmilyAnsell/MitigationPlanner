@@ -14,6 +14,8 @@ npm run test:run  # run all tests once (CI)
 npm run test:ui   # Vitest UI, useful for debugging
 npm run test -- tests/unit/cooldownCalculations.test.js  # single file
 npm run test -- --project unit                           # one project only
+npm run test:unit # alias to run unit tests only, once
+npm run test:int  # alias to run integration tests only, once
 ```
 
 ### Tests
@@ -21,7 +23,7 @@ npm run test -- --project unit                           # one project only
 Testing uses **Vitest**. Two projects are configured in `vitest.config.js`:
 
 - **`unit`** — `tests/unit/**/*.test.js`, `node` environment. For utilities, hooks, and data (`src/utils`, `src/hooks`, `src/data`).
-- **`browser`** — `tests/browser/**/*.test.js`, real Firefox via `@vitest/browser-playwright` + React Testing Library. For React components.
+- **`browser`** — `tests/browser/**/*.test.jsx`, real Firefox via `@vitest/browser-playwright` + React Testing Library. For React components. Browser test files are `.jsx` because they contain JSX, and the project carries its own `plugins: [react()]` **at the project level** (a sibling of `test`, not inside it).
 
 `tests/unit/cooldownCalculations.test.js` is the reference example for testing a utility file. Follow its conventions:
 
@@ -32,6 +34,17 @@ Testing uses **Vitest**. Two projects are configured in `vitest.config.js`:
 - **Cover boundaries and edge cases** — exact cooldown end, pre-pull (negative) times, zero/null durations, multi-charge recharge.
 - **Test the reachable domain; pin invariants at the layer that enforces them.** e.g. placements past the timeline end are rejected in `useDragPlacement`, so `getEffectiveDuration` is not tested for that unreachable input.
 - Do not edit the code being tested when writing tests, especially not in order to make a test pass. If you find a bug, flag it in an issue, write a test for the expected behavior, and fix the bug in a separate PR.
+
+`tests/browser/MitigationPlanner.test.jsx` is the reference example for a component/integration test in a real browser. Follow its conventions:
+
+- **Mount with `render(<App />)`** from `@testing-library/react`; you rarely need its return value. **Query and interact through `page`** (from `@vitest/browser/context`, re-exported by `vitest/browser`) rather than RTL's `screen`.
+- **Locators are lazy, retrying descriptions, not elements.** Assert with an awaited `await expect.element(locator).toBeInTheDocument()` — the `await` is mandatory: it is what retries until the DOM settles, and an unawaited `expect.element` passes vacuously. (This is why browser tests are `async` while unit tests are synchronous — they observe rendered DOM, not return values.)
+- **Bridge a locator to a real DOM node with `.element()`** when you need to hand it to `fireEvent` or a DOM API like `.closest()`.
+- **Prefer semantic queries** (`getByText`, `getByRole`, `getByAltText`). Add a `data-testid` only when an element has no accessible handle (e.g. the timeline drop-zone) — a testid is an inert seam, not a behavior change.
+- **Drive HTML5 drag-and-drop with `fireEvent`, not real mouse / `userEvent`** — Playwright cannot synthesize native drag events. Fire the lifecycle in order: `dragStart` → `dragOver` (with a `clientX`) → `drop`. `dragOver` builds the preview that `drop` reads (skip it and the drop is a no-op); `drop`, not `dragEnd`, commits the placement. This app keeps the dragged ability in React state (not `dataTransfer`), so no `dataTransfer` faking is needed.
+- **Isolate with `afterEach(() => { cleanup(); localStorage.clear(); })`** — `cleanup` unmounts prior trees so queries don't match two mounts, and clearing `localStorage` stops App's auto-save from leaking state between tests.
+- **Prefer executable checks over comments when something can break silently** — but don't assert a precondition a throwing lookup already enforces (`getByText`/`getByTestId` blow up if the default party comp changes). Comment the assumed defaults to explain _why_ the lookups resolve; reserve assertions for what nothing else would catch.
+- **DRY for tests** — once a fact has a dedicated test that owns it (e.g. a future "renders the default party composition" test), rely on it rather than re-asserting it here.
 
 ## Architecture
 

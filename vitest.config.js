@@ -14,11 +14,11 @@ export default defineConfig({
         },
       },
       {
+        plugins: [react()],
         test: {
-          include: ["tests/browser/**/*.test.js"],
+          include: ["tests/browser/**/*.test.js*"],
           name: "browser",
           globals: true,
-          plugins: [react()],
           browser: {
             enabled: true,
             headless: true,
