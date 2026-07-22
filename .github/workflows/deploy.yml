@@ -28,6 +28,7 @@ jobs:
       - uses: actions/setup-node@v6
         with:
           node-version: 24.15
+          cache: npm
       - run: npm ci
       - run: npm run build
       - uses: actions/upload-artifact@v6
