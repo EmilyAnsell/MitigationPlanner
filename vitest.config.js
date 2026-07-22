@@ -16,7 +16,7 @@ export default defineConfig({
       {
         plugins: [react()],
         test: {
-          include: ["tests/browser/**/*.test.js*"],
+          include: ["tests/browser/**/*.test.jsx"],
           name: "browser",
           globals: true,
           browser: {

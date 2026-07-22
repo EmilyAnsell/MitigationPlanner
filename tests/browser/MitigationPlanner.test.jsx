@@ -1,7 +1,6 @@
 import { render, cleanup, fireEvent } from "@testing-library/react";
 import { page } from "vitest/browser";
 import App from "../../src/App.jsx";
-import { afterEach } from "vitest";
 
 describe("placing an ability", () => {
   afterEach(() => {
