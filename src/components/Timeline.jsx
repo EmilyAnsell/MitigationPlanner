@@ -236,6 +236,7 @@ export default function Timeline({
                       onDragOver={onDragOver}
                       onDragLeave={onDragLeave}
                       onDrop={onDropOnRow}
+                      data-testid={`dropzone-${slot}`}
                     >
                       {/* Prepull section tinting overlay */}
                       {prepullVisibleSeconds > 0 && (
