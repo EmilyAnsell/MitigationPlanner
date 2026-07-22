@@ -17,7 +17,18 @@ jobs:
           node-version: 24.15
           cache: npm
       - run: npm ci
-      - run: npx playwright install --with-deps firefox
+      - name: Cache Playwright browsers
+        id: playwright-cache
+        uses: actions/cache@v6
+        with:
+          path: ~/.cache/ms-playwright
+          key: ${{ runner.os }}-playwright-${{ hashFiles('package-lock.json') }} # invalidates cache on *any* dependancy change - conservative
+      - name: Install Playwright browser (Firefox)
+        if: steps.playwright-cache.outputs.cache-hit != 'true'
+        run: npx playwright install --with-deps firefox
+      - name: Install Playwright system deps (cache hit)
+        if: steps.playwright-cache.outputs.cache-hit == 'true'
+        run: npx playwright install-deps firefox
       - run: npm run test:run # unit + browser projects, run once
 
   build:
@@ -36,7 +47,7 @@ jobs:
           name: dist
           path: dist/
 
-  deploy-aws:
+  deploy-aws: # Test/latest environment - hosts latest release and associated PRs
     runs-on: ubuntu-latest
     needs: build
     if: github.event_name != 'pull_request' || github.event.pull_request.merged == true
@@ -52,7 +63,7 @@ jobs:
           aws-region: us-east-2
       - run: aws s3 sync dist/ s3://ea-ffxiv-mitigation-planner/ --delete
 
-  deploy-gh:
+  deploy-gh: # Production - serves the latest main
     runs-on: ubuntu-latest
     needs: build
     if: (github.event_name == 'pull_request' && github.event.pull_request.merged == true && github.base_ref == 'main') || github.event_name == 'workflow_dispatch'
