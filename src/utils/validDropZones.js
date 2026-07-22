@@ -1,4 +1,4 @@
-import { canPlaceChargeAt } from "./cooldownCalculations";
+import { canPlaceAbilityAt } from "./cooldownCalculations";
 
 /**
  * Calculate valid drop zones for an ability considering cooldown conflicts
@@ -138,7 +138,7 @@ function calculateMultiChargeValidZones(
 
   // Test each second of the timeline
   for (let time = -prepullVisibleSeconds; time <= maxEndTime; time++) {
-    const isValid = canPlaceChargeAt(
+    const isValid = canPlaceAbilityAt(
       existingPlacements,
       ability,
       time,

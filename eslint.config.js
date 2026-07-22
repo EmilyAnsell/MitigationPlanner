@@ -9,7 +9,10 @@ export default [
   {
     files: ["**/*.{js,jsx}"],
     languageOptions: {
-      globals: globals.browser,
+      globals: {
+        ...globals.browser,
+        ...globals.vitest,
+      },
       sourceType: "module",
       ecmaVersion: "latest",
       parserOptions: {
@@ -31,7 +34,10 @@ export default [
       ...reactHooks.configs.recommended.rules,
       ...react.configs.flat["jsx-runtime"].rules,
       "react/jsx-uses-vars": "error",
-      "no-unused-vars": ["error", { "argsIgnorePattern": "^_", "destructuredArrayIgnorePattern": "^_" }],
+      "no-unused-vars": [
+        "error",
+        { argsIgnorePattern: "^_", destructuredArrayIgnorePattern: "^_" },
+      ],
       "react-refresh/only-export-components": [
         "warn",
         { allowConstantExport: true },
