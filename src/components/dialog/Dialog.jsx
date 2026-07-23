@@ -4,16 +4,20 @@ export default function Dialog({ isDialogOpen, onCloseDialog }) {
       {isDialogOpen ? (
         <>
           <div
-            className="fixed inset-0 bg-black/50"
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black/50"
             onClick={onCloseDialog}
-          ></div>
-          <div className="fixed p-6 -translate-x-1/2 -translate-y-1/2 bg-white rounded-lg shadow-xl left-1/2 top-1/2">
-            <button
-              className="px-3 py-1 bg-blue-600 rounded hover:bg-blue-700"
-              onClick={onCloseDialog}
+          >
+            <div
+              className="fixed p-6 bg-gray-800 rounded-lg shadow-xl "
+              onClick={(e) => e.stopPropagation()}
             >
-              Close
-            </button>
+              <button
+                className="px-3 py-1 bg-blue-600 rounded hover:bg-blue-700"
+                onClick={onCloseDialog}
+              >
+                Close
+              </button>
+            </div>
           </div>
         </>
       ) : null}
