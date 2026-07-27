@@ -8,6 +8,7 @@ import {
   exportPlan,
   importPlan,
 } from "../utils/planStorage";
+import { openDialog } from "../utils/dialogStore";
 
 export default function PlanManager({
   currentTimeline,
@@ -37,7 +38,7 @@ export default function PlanManager({
       placements,
     });
 
-    alert("Plan saved!");
+    openDialog({ body: "Plan saved!" });
   };
 
   const handleSaveAs = () => {
@@ -93,7 +94,7 @@ export default function PlanManager({
     importPlan(file, (data) => {
       const newPlanId = generatePlanId(
         data.bossId || currentTimeline,
-        data.planName || "Imported Plan"
+        data.planName || "Imported Plan",
       );
       savePlan(newPlanId, {
         bossId: data.bossId || currentTimeline,
@@ -116,7 +117,7 @@ export default function PlanManager({
       <select
         value={currentPlanId || ""}
         onChange={(e) => onPlanChange(e.target.value || null)}
-        className="bg-gray-700 rounded px-3 py-2"
+        className="px-3 py-2 bg-gray-700 rounded"
       >
         <option value="">New Plan (Unsaved)</option>
         {plansForBoss.map((plan) => (
@@ -129,7 +130,7 @@ export default function PlanManager({
       {/* Action Buttons */}
       <button
         onClick={handleSave}
-        className="flex items-center gap-1 px-3 py-2 bg-blue-600 hover:bg-blue-700 rounded"
+        className="flex items-center gap-1 px-3 py-2 bg-blue-600 rounded hover:bg-blue-700"
         title="Save"
       >
         <Save size={16} />
@@ -138,7 +139,7 @@ export default function PlanManager({
 
       <button
         onClick={() => setShowSaveAsDialog(true)}
-        className="flex items-center gap-1 px-3 py-2 bg-blue-600 hover:bg-blue-700 rounded"
+        className="flex items-center gap-1 px-3 py-2 bg-blue-600 rounded hover:bg-blue-700"
         title="Save As"
       >
         <Plus size={16} />
@@ -147,7 +148,7 @@ export default function PlanManager({
 
       <button
         onClick={handleExport}
-        className="flex items-center gap-1 px-3 py-2 bg-gray-600 hover:bg-gray-700 rounded"
+        className="flex items-center gap-1 px-3 py-2 bg-gray-600 rounded hover:bg-gray-700"
         title="Export"
       >
         <Download size={16} />
@@ -155,7 +156,7 @@ export default function PlanManager({
 
       <button
         onClick={handleImport}
-        className="flex items-center gap-1 px-3 py-2 bg-gray-600 hover:bg-gray-700 rounded"
+        className="flex items-center gap-1 px-3 py-2 bg-gray-600 rounded hover:bg-gray-700"
         title="Import"
       >
         <Upload size={16} />
@@ -164,7 +165,7 @@ export default function PlanManager({
       {currentPlanId && (
         <button
           onClick={handleDelete}
-          className="flex items-center gap-1 px-3 py-2 bg-red-600 hover:bg-red-700 rounded"
+          className="flex items-center gap-1 px-3 py-2 bg-red-600 rounded hover:bg-red-700"
           title="Delete"
         >
           <Trash2 size={16} />
@@ -182,33 +183,33 @@ export default function PlanManager({
 
       {/* Save dialog */}
       {showSaveAsDialog && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-gray-800 rounded-lg p-6 max-w-md w-full">
-            <h3 className="text-xl font-semibold mb-4">Save Plan As</h3>
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
+          <div className="w-full max-w-md p-6 bg-gray-800 rounded-lg">
+            <h3 className="mb-4 text-xl font-semibold">Save Plan As</h3>
             <input
               type="text"
               value={newPlanName}
               onChange={(e) => setNewPlanName(e.target.value)}
               placeholder="Enter plan name..."
-              className="w-full bg-gray-700 rounded px-3 py-2 mb-4"
+              className="w-full px-3 py-2 mb-4 bg-gray-700 rounded"
               autoFocus
               onKeyPress={(e) => {
                 if (e.key === "Enter") handleSaveAs();
               }}
             />
-            <div className="flex gap-2 justify-end">
+            <div className="flex justify-end gap-2">
               <button
                 onClick={() => {
                   setShowSaveAsDialog(false);
                   setNewPlanName("");
                 }}
-                className="px-4 py-2 bg-gray-600 hover:bg-gray-700 rounded"
+                className="px-4 py-2 bg-gray-600 rounded hover:bg-gray-700"
               >
                 Cancel
               </button>
               <button
                 onClick={handleSaveAs}
-                className="px-4 py-2 bg-blue-600 hover:bg-blue-700 rounded"
+                className="px-4 py-2 bg-blue-600 rounded hover:bg-blue-700"
               >
                 Save
               </button>

@@ -1,5 +1,3 @@
-export const DialogBody = ({
-  content = "Body content - image and/or text",
-}) => {
-  return <div>{content}</div>;
+export const DialogBody = ({ content }) => {
+  return content !== undefined ? <div>{content}</div> : null;
 };

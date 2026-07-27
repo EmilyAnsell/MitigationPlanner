@@ -4,7 +4,7 @@ import PlayerSelector from "./components/PlayerSelector";
 import PlayerAbilities from "./components/PlayerAbilities";
 import Timeline from "./components/Timeline";
 import TimelineControls from "./components/TimelineControls";
-import Dialog from "./components/dialog/Dialog";
+import GlobalDialog from "./components/dialog/GlobalDialog";
 import { JOBS } from "./data/jobs";
 import {
   BOSS_TIMELINES,
@@ -26,14 +26,12 @@ export default function MitigationPlanner() {
     dps3: "BRD",
     dps4: "PCT",
   });
-
   const [placements, setPlacements] = useState([]);
   const [prepullVisible, setPrepullVisible] = useState(false);
   const [currentTimeline, setCurrentTimeline] = useState("dancing-green");
   const [currentPlanId, setCurrentPlanId] = useState(null);
   const [zoom, setZoom] = useState(4);
   const [selectedSlot, setSelectedSlot] = useState("tank1");
-  const [isDialogOpen, setIsDialogOpen] = useState(false);
 
   const timeline = BOSS_TIMELINES[currentTimeline];
   const prepullVisibleSeconds = prepullVisible ? PRE_PULL_TIMER_DURATION : 0;
@@ -142,15 +140,10 @@ export default function MitigationPlanner() {
     setPrepullVisible((v) => !v);
   };
 
-  const handleCloseDialog = () => {
-    setIsDialogOpen(false);
-  };
-
   return (
     <div className="min-h-screen p-6 text-white bg-gray-900">
       <div className="mx-auto max-w-7xl">
-        <button onClick={() => setIsDialogOpen(true)}>Click me</button>
-        <Dialog isDialogOpen={isDialogOpen} onCloseDialog={handleCloseDialog} />
+        <GlobalDialog />
 
         <TimelineControls
           currentTimeline={currentTimeline}
