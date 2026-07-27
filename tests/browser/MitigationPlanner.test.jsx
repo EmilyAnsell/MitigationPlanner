@@ -1,6 +1,20 @@
 import { render, cleanup, fireEvent } from "@testing-library/react";
 import { page } from "vitest/browser";
 import App from "../../src/App.jsx";
+import { getJobAbilities } from "../../src/data/jobs";
+import { savePlan, generatePlanId } from "../../src/utils/planStorage";
+
+// Matches App's default partyComp - kept in sync manually since App doesn't export it.
+const DEFAULT_PARTY_COMP = {
+  tank1: "PLD",
+  tank2: "WAR",
+  healer1: "AST",
+  healer2: "SCH",
+  dps1: "DRG",
+  dps2: "RDM",
+  dps3: "BRD",
+  dps4: "PCT",
+};
 
 describe("placing an ability", () => {
   afterEach(() => {
@@ -62,5 +76,148 @@ describe("placing an ability", () => {
     await expect
       .poll(() => page.getByAltText("Rampart").elements().length)
       .toBe(1);
+  });
+});
+
+describe("clearing a row", () => {
+  afterEach(() => {
+    cleanup();
+    localStorage.clear(); // Auto-save writes to localStorage
+    vi.restoreAllMocks();
+  });
+
+  /* Saves a plan directly into localStorage (bypassing drag-and-drop, which "placing an ability"
+  above already covers), for `selectPlan` to load post-mount. Must be called *before* `render`:
+  PlanManager only re-reads localStorage on its own render, so a plan saved after mount has no
+  corresponding <option> yet - setting the <select>'s value to that (still non-existent) planId
+  is then a no-op, silently resetting to "" instead of selecting it. */
+  function seedPlanWithPlacements(placements) {
+    const planId = generatePlanId("dancing-green", "Test Plan");
+    savePlan(planId, {
+      bossId: "dancing-green",
+      planName: "Test Plan",
+      partyComp: DEFAULT_PARTY_COMP,
+      placements,
+    });
+    return planId;
+  }
+
+  // Loads a plan seeded by `seedPlanWithPlacements` via PlanManager's plan selector - the app's
+  // only seam for putting placements into state without a UI drag.
+  function selectPlan(planId) {
+    const planSelect = page
+      .getByText("New Plan (Unsaved)")
+      .element()
+      .closest("select");
+    fireEvent.change(planSelect, { target: { value: planId } });
+  }
+
+  /* PartyComposition's job <select> has no htmlFor/id linking it to its <label>, and its
+  slot label text (e.g. "Tank 1") is duplicated by PartyList's frozen timeline column, so
+  page.getByText can't uniquely resolve it. Only the PartyComposition copy sits in a <div>
+  with a <select>, so filtering on that disambiguates and finds the real control. */
+  function getSlotSelect(slotLabel) {
+    const label = page
+      .getByText(slotLabel)
+      .elements()
+      .find((el) => el.closest("div")?.querySelector("select"));
+    return label.closest("div").querySelector("select");
+  }
+
+  test("swapping a slot's job with no existing placements changes the job immediately without prompting for confirmation", async () => {
+    render(<App />);
+    const confirmSpy = vi.spyOn(window, "confirm");
+
+    // Default: tank2 = "WAR" (Warrior), with no abilities placed on it.
+    const tank2Select = getSlotSelect("Tank 2");
+    fireEvent.change(tank2Select, { target: { value: "PLD" } });
+
+    expect(confirmSpy).not.toHaveBeenCalled();
+    await expect.poll(() => tank2Select.value).toBe("PLD");
+  });
+
+  test("swapping a slot's job with placements prompts for confirmation, and confirming clears job-specific abilities but keeps role abilities matching the new job's role", async () => {
+    // Holy Sheltron is Paladin-specific; Rampart is a shared Tank role ability - both on tank1.
+    const holySheltron = getJobAbilities("PLD").find(
+      (a) => a.id === "holy-sheltron",
+    );
+    const rampart = getJobAbilities("PLD").find((a) => a.id === "rampart");
+    const planId = seedPlanWithPlacements([
+      { ...holySheltron, slot: "tank1", startTime: 0, placementId: "seed-1" },
+      { ...rampart, slot: "tank1", startTime: 30, placementId: "seed-2" },
+    ]);
+
+    render(<App />);
+    vi.spyOn(window, "confirm").mockReturnValue(true);
+    selectPlan(planId);
+    await expect
+      .element(page.getByAltText("Holy Sheltron"))
+      .toBeInTheDocument();
+    await expect.element(page.getByAltText("Rampart")).toBeInTheDocument();
+
+    // WAR is also role "Tank", same as PLD, so the Rampart placement's role should be preserved.
+    const tank1Select = getSlotSelect("Tank 1");
+    fireEvent.change(tank1Select, { target: { value: "WAR" } });
+
+    expect(window.confirm).toHaveBeenCalledWith(
+      "Clear non-role abilities from Paladin?",
+    );
+    await expect.poll(() => tank1Select.value).toBe("WAR");
+    await expect
+      .element(page.getByAltText("Holy Sheltron"))
+      .not.toBeInTheDocument();
+    await expect.element(page.getByAltText("Rampart")).toBeInTheDocument();
+  });
+
+  test("swapping a slot's job with placements leaves the job and placements unchanged when the user cancels the confirmation", async () => {
+    const holySheltron = getJobAbilities("PLD").find(
+      (a) => a.id === "holy-sheltron",
+    );
+    const planId = seedPlanWithPlacements([
+      { ...holySheltron, slot: "tank1", startTime: 0, placementId: "seed-1" },
+    ]);
+
+    render(<App />);
+    vi.spyOn(window, "confirm").mockReturnValue(false);
+    selectPlan(planId);
+    await expect
+      .element(page.getByAltText("Holy Sheltron"))
+      .toBeInTheDocument();
+
+    const tank1Select = getSlotSelect("Tank 1");
+    fireEvent.change(tank1Select, { target: { value: "WAR" } });
+
+    expect(window.confirm).toHaveBeenCalled();
+    await expect.poll(() => tank1Select.value).toBe("PLD");
+    await expect
+      .element(page.getByAltText("Holy Sheltron"))
+      .toBeInTheDocument();
+  });
+
+  test("clicking a party slot's clear-row button removes its placements without prompting for confirmation", async () => {
+    const holySheltron = getJobAbilities("PLD").find(
+      (a) => a.id === "holy-sheltron",
+    );
+    const rampart = getJobAbilities("PLD").find((a) => a.id === "rampart");
+    const planId = seedPlanWithPlacements([
+      { ...holySheltron, slot: "tank1", startTime: 0, placementId: "seed-1" },
+      { ...rampart, slot: "tank1", startTime: 30, placementId: "seed-2" },
+    ]);
+
+    render(<App />);
+    const confirmSpy = vi.spyOn(window, "confirm");
+    selectPlan(planId);
+    await expect
+      .element(page.getByAltText("Holy Sheltron"))
+      .toBeInTheDocument();
+
+    // PartyList's clear-row button - title comes from `Clear ${job.name} row` for the slot's current job.
+    fireEvent.click(page.getByTitle("Clear Paladin row").element());
+
+    expect(confirmSpy).not.toHaveBeenCalled();
+    await expect
+      .element(page.getByAltText("Holy Sheltron"))
+      .not.toBeInTheDocument();
+    await expect.element(page.getByAltText("Rampart")).not.toBeInTheDocument();
   });
 });
