@@ -2,7 +2,11 @@ import { render, cleanup, fireEvent } from "@testing-library/react";
 import { page } from "vitest/browser";
 import PlanManager from "../../src/components/PlanManager.jsx";
 import GlobalDialog from "../../src/components/dialog/GlobalDialog.jsx";
-import { loadPlan } from "../../src/utils/planStorage";
+import {
+  loadPlan,
+  savePlan,
+  generatePlanId,
+} from "../../src/utils/planStorage";
 import { closeDialog } from "../../src/utils/dialogStore";
 
 // GlobalDialog is rendered alongside PlanManager because openDialog/closeDialog
@@ -151,6 +155,67 @@ describe("PlanManager Save As flow", () => {
     fireEvent.click(page.getByTitle("Save", { exact: true }).element());
 
     await expect.element(page.getByText("Save Plan As")).toBeInTheDocument();
+    expect(onPlanChange).not.toHaveBeenCalled();
+  });
+});
+
+describe("PlanManager Delete flow", () => {
+  afterEach(() => {
+    cleanup();
+    closeDialog();
+    localStorage.clear();
+  });
+
+  /* Seeds a saved plan and renders PlanManager already pointed at it. The Delete
+  button only renders when currentPlanId is set, and the confirmation body reads
+  the plan's name from getPlansByBoss - so the plan must exist in localStorage
+  before render (PlanManager reads storage on its own render). */
+  function renderWithSavedPlan(planName = "My Plan") {
+    const planId = generatePlanId("test-boss", planName);
+    savePlan(planId, {
+      bossId: "test-boss",
+      planName,
+      partyComp: {},
+      placements: [],
+    });
+    const { onPlanChange } = renderPlanManager({ currentPlanId: planId });
+    return { planId, onPlanChange };
+  }
+
+  test("clicking Delete opens a confirmation dialog naming the current plan", async () => {
+    renderWithSavedPlan("My Plan");
+
+    fireEvent.click(page.getByTitle("Delete").element());
+
+    await expect
+      .element(page.getByText('Delete plan "My Plan"?'))
+      .toBeInTheDocument();
+  });
+
+  test("confirming Delete removes the plan, clears the selection, and reports it deleted", async () => {
+    const { planId, onPlanChange } = renderWithSavedPlan("My Plan");
+
+    fireEvent.click(page.getByTitle("Delete").element());
+    fireEvent.click(
+      page.getByRole("dialog").getByRole("button", { name: "Delete" }).element(),
+    );
+
+    expect(loadPlan(planId)).toBe(null);
+    expect(onPlanChange).toHaveBeenCalledTimes(1);
+    expect(onPlanChange).toHaveBeenCalledWith(null);
+    await expect.element(page.getByText("Plan deleted")).toBeInTheDocument();
+  });
+
+  test("cancelling Delete leaves the plan intact and does not change the selection", async () => {
+    const { planId, onPlanChange } = renderWithSavedPlan("My Plan");
+
+    fireEvent.click(page.getByTitle("Delete").element());
+    fireEvent.click(
+      page.getByRole("dialog").getByRole("button", { name: "Cancel" }).element(),
+    );
+
+    await expect.element(page.getByRole("dialog")).not.toBeInTheDocument();
+    expect(loadPlan(planId)).not.toBe(null);
     expect(onPlanChange).not.toHaveBeenCalled();
   });
 });

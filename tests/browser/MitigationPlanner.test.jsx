@@ -16,6 +16,32 @@ const DEFAULT_PARTY_COMP = {
   dps4: "PCT",
 };
 
+/* Saves a plan directly into localStorage (bypassing drag-and-drop, which "placing an ability"
+covers), for `selectPlan` to load post-mount. Must be called *before* `render`: PlanManager only
+re-reads localStorage on its own render, so a plan saved after mount has no corresponding <option>
+yet - setting the <select>'s value to that (still non-existent) planId is then a no-op, silently
+resetting to "" instead of selecting it. */
+function seedPlanWithPlacements(placements) {
+  const planId = generatePlanId("dancing-green", "Test Plan");
+  savePlan(planId, {
+    bossId: "dancing-green",
+    planName: "Test Plan",
+    partyComp: DEFAULT_PARTY_COMP,
+    placements,
+  });
+  return planId;
+}
+
+// Loads a plan seeded by `seedPlanWithPlacements` via PlanManager's plan selector - the app's
+// only seam for putting placements into state without a UI drag.
+function selectPlan(planId) {
+  const planSelect = page
+    .getByText("New Plan (Unsaved)")
+    .element()
+    .closest("select");
+  fireEvent.change(planSelect, { target: { value: planId } });
+}
+
 describe("placing an ability", () => {
   afterEach(() => {
     cleanup();
@@ -84,32 +110,6 @@ describe("clearing a row", () => {
     cleanup();
     localStorage.clear(); // Auto-save writes to localStorage
   });
-
-  /* Saves a plan directly into localStorage (bypassing drag-and-drop, which "placing an ability"
-  above already covers), for `selectPlan` to load post-mount. Must be called *before* `render`:
-  PlanManager only re-reads localStorage on its own render, so a plan saved after mount has no
-  corresponding <option> yet - setting the <select>'s value to that (still non-existent) planId
-  is then a no-op, silently resetting to "" instead of selecting it. */
-  function seedPlanWithPlacements(placements) {
-    const planId = generatePlanId("dancing-green", "Test Plan");
-    savePlan(planId, {
-      bossId: "dancing-green",
-      planName: "Test Plan",
-      partyComp: DEFAULT_PARTY_COMP,
-      placements,
-    });
-    return planId;
-  }
-
-  // Loads a plan seeded by `seedPlanWithPlacements` via PlanManager's plan selector - the app's
-  // only seam for putting placements into state without a UI drag.
-  function selectPlan(planId) {
-    const planSelect = page
-      .getByText("New Plan (Unsaved)")
-      .element()
-      .closest("select");
-    fireEvent.change(planSelect, { target: { value: planId } });
-  }
 
   /* PartyComposition's job <select> has no htmlFor/id linking it to its <label>, and its
   slot label text (e.g. "Tank 1") is duplicated by PartyList's frozen timeline column, so
@@ -225,5 +225,66 @@ describe("clearing a row", () => {
       .not.toBeInTheDocument();
     await expect.element(page.getByAltText("Rampart")).not.toBeInTheDocument();
     await expect.element(page.getByRole("dialog")).not.toBeInTheDocument();
+  });
+});
+
+describe("clearing the whole timeline", () => {
+  afterEach(() => {
+    cleanup();
+    localStorage.clear(); // Auto-save writes to localStorage
+  });
+
+  test("clicking Clear Timeline opens a confirmation dialog, and confirming removes every placement", async () => {
+    const holySheltron = getJobAbilities("PLD").find(
+      (a) => a.id === "holy-sheltron",
+    );
+    const planId = seedPlanWithPlacements([
+      { ...holySheltron, slot: "tank1", startTime: 0, placementId: "seed-1" },
+    ]);
+
+    render(<App />);
+    selectPlan(planId);
+    await expect
+      .element(page.getByAltText("Holy Sheltron"))
+      .toBeInTheDocument();
+
+    fireEvent.click(page.getByText("Clear Timeline").element());
+
+    await expect
+      .element(page.getByText("Clear all abilities from the timeline?"))
+      .toBeInTheDocument();
+    fireEvent.click(
+      page.getByRole("dialog").getByRole("button", { name: "Clear All" }).element(),
+    );
+
+    await expect
+      .element(page.getByAltText("Holy Sheltron"))
+      .not.toBeInTheDocument();
+    await expect.element(page.getByRole("dialog")).not.toBeInTheDocument();
+  });
+
+  test("cancelling the Clear Timeline dialog leaves the placements untouched", async () => {
+    const holySheltron = getJobAbilities("PLD").find(
+      (a) => a.id === "holy-sheltron",
+    );
+    const planId = seedPlanWithPlacements([
+      { ...holySheltron, slot: "tank1", startTime: 0, placementId: "seed-1" },
+    ]);
+
+    render(<App />);
+    selectPlan(planId);
+    await expect
+      .element(page.getByAltText("Holy Sheltron"))
+      .toBeInTheDocument();
+
+    fireEvent.click(page.getByText("Clear Timeline").element());
+    fireEvent.click(
+      page.getByRole("dialog").getByRole("button", { name: "Cancel" }).element(),
+    );
+
+    await expect.element(page.getByRole("dialog")).not.toBeInTheDocument();
+    await expect
+      .element(page.getByAltText("Holy Sheltron"))
+      .toBeInTheDocument();
   });
 });
