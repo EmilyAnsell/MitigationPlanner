@@ -1,3 +1,4 @@
+import { act } from "react";
 import { render, cleanup, fireEvent } from "@testing-library/react";
 import { page } from "vitest/browser";
 import GlobalDialog from "../../src/components/dialog/GlobalDialog.jsx";
@@ -63,7 +64,9 @@ describe("GlobalDialog", () => {
 
     await expect.element(page.getByText("First")).toBeInTheDocument();
 
-    openDialog({ body: "Second" });
+    act(() => {
+      openDialog({ body: "Second" });
+    });
 
     await expect.element(page.getByText("Second")).toBeInTheDocument();
     await expect.element(page.getByText("First")).not.toBeInTheDocument();
