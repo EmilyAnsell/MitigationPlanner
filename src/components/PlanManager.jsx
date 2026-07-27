@@ -8,7 +8,7 @@ import {
   exportPlan,
   importPlan,
 } from "../utils/planStorage";
-import { openDialog } from "../utils/dialogStore";
+import { closeDialog, openDialog } from "../utils/dialogStore";
 
 export default function PlanManager({
   currentTimeline,
@@ -43,7 +43,7 @@ export default function PlanManager({
 
   const handleSaveAs = () => {
     if (!newPlanName.trim()) {
-      alert("Please enter a plan name");
+      openDialog({ body: "Please enter a plan name" });
       return;
     }
 
@@ -58,17 +58,27 @@ export default function PlanManager({
     setShowSaveAsDialog(false);
     setNewPlanName("");
     onPlanChange(newPlanId);
-    alert("Plan saved as new!");
+    openDialog({ body: "Plan saved as new!" });
   };
 
   const handleDelete = () => {
     if (!currentPlanId) return;
 
-    if (confirm(`Delete plan "${currentPlan?.planName}"?`)) {
-      deletePlan(currentPlanId);
-      onPlanChange(null);
-      alert("Plan deleted");
-    }
+    openDialog({
+      body: `Delete plan "${currentPlan?.planName}"?`,
+      buttons: [
+        { label: "Cancel", onClick: closeDialog },
+        {
+          label: "Delete",
+          onClick: () => {
+            closeDialog();
+            deletePlan(currentPlanId);
+            onPlanChange(null);
+            openDialog({ body: "Plan deleted" });
+          },
+        },
+      ],
+    });
   };
 
   const handleExport = () => {
@@ -104,7 +114,7 @@ export default function PlanManager({
       });
 
       onPlanChange(newPlanId);
-      alert("Plan imported successfully!");
+      openDialog({ body: "Plan imported successfully!" });
     });
 
     // Reset input
@@ -181,9 +191,12 @@ export default function PlanManager({
         className="hidden"
       />
 
-      {/* Save dialog */}
+      {/* Save dialog
+      - includes hacky temporary fix to set z-40 so that the "Please enter a plan name" dialog appears on top.
+      TODO: refactor this saveAsDialog into a Dialog via openDialog(), updating the dialog with a red-text warning
+      when an empty string is submitted rather than another layer of pop-ups*/}
       {showSaveAsDialog && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
+        <div className="fixed inset-0 z-40 flex items-center justify-center bg-black bg-opacity-50">
           <div className="w-full max-w-md p-6 bg-gray-800 rounded-lg">
             <h3 className="mb-4 text-xl font-semibold">Save Plan As</h3>
             <input

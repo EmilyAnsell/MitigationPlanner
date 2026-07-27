@@ -90,6 +90,10 @@ Add an entry to `BOSS_TIMELINES` in `src/data/bossTimelines.js` following the ex
 
 Add the job to `JOBS` in `src/data/jobs.js`. Drop the ability icon PNG into `src/assets/icons/abilities/<JOB>/` — `iconLoader.js` picks it up automatically by filename stem matching the ability `id`.
 
+### Alerts and Confirmation Dialogs
+
+- **Avoid `alert()`/`confirm()`**: use custom Dialog found in Dialog.jsx, accessed anywhere with dialogStore.js openDialog(). Use the body to explain the purpose of the dialog and feed the buttons with meaningful-but-succinct labels and onClick functionality, typically in a custom () => {} function performing whatever you need the button to do.
+
 ## Style conventions
 
 ### What the codebase does consistently
@@ -113,5 +117,3 @@ Add the job to `JOBS` in `src/data/jobs.js`. Drop the ability icon PNG into `src
 - **Extract magic numbers to named constants** — values like `labelWidth = 128`, the `snapThreshold = 2` in `validDropZones.js`, and the `laneHeight` arithmetic in `TimelineRow` should be named constants alongside `ROW_HEIGHT` and `PIXELS_PER_SECOND` in `bossTimelines.js`.
 
 - **`useMemo` with `[]` deps belongs at module scope** — `getJobsByCategory` in `PartyComposition.jsx` is memoized with an empty dependency array, making it equivalent to a constant. Move it outside the component as a module-level `const`.
-
-- **Avoid `alert()`/`confirm()`** — `PlanManager.jsx` and `App.jsx` use blocking browser dialogs for save confirmations and clear-all. These should be replaced with inline UI (a confirmation state or a small modal).

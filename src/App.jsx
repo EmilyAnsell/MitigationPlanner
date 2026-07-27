@@ -14,6 +14,7 @@ import {
 import { getAbilitiesForSlot } from "./utils/cooldownCalculations";
 import { loadPlan, savePlan } from "./utils/planStorage";
 import { useDragPlacement } from "./hooks/useDragPlacement";
+import { closeDialog, openDialog } from "./utils/dialogStore";
 
 export default function MitigationPlanner() {
   const [partyComp, setPartyComp] = useState({
@@ -98,38 +99,62 @@ export default function MitigationPlanner() {
   };
 
   /**
-   * Clears ability placements from a party slot.
+   * Clears ability placements from a party slot, then runs `onCleared`.
    * @param {string} slot - Party slot key (e.g. "tank1")
-   * @param {boolean} [isRoleSwap=false] - When true, prompts for confirmation and preserves role abilities whose sub-role matches `role`; when false, clears all placements without prompting
+   * @param {boolean} [isWithinRoleSwap=false] - When true, prompts for confirmation and preserves role abilities whose sub-role matches `role`; when false, clears all placements without prompting
    * @param {string|null} [role=null] - Sub-role of the incoming job (e.g. "Tank", "Melee", "Magical_Ranged"); null (e.g. swapping to "None") preserves nothing
-   * @returns {boolean} false if the user cancelled the confirmation, true otherwise
+   * @param {() => void} [onCleared=() => {}] - Called once the row has actually been cleared (immediately, or after the user confirms); never called if the user cancels
    */
-  const clearRow = (slot, isRoleSwap = false, role = null) => {
+  const clearRow = (
+    slot,
+    isWithinRoleSwap = false,
+    role = null,
+    onCleared = () => {},
+  ) => {
     if (placements.some((p) => p.slot === slot)) {
-      if (!isRoleSwap) {
+      if (!isWithinRoleSwap) {
         setPlacements(placements.filter((p) => p.slot !== slot));
-        return true;
+        onCleared();
+        return;
       }
-      if (
-        confirm(
-          `Clear non-role abilities from ${JOBS[partyComp[slot]]?.name || slot}?`,
-        )
-      ) {
-        setPlacements(
-          placements.filter((p) => p.slot !== slot || p.roleAbility === role),
-        );
-        return true;
-      } else {
-        return false; // User cancelled clearing the row
-      }
+      openDialog({
+        header: "Job Swap",
+        body: `Clear non-role abilities from ${JOBS[partyComp[slot]]?.name || slot}?`,
+        buttons: [
+          { label: "Cancel", onClick: closeDialog },
+          {
+            label: "Continue",
+            onClick: () => {
+              closeDialog();
+              setPlacements(
+                placements.filter(
+                  (p) => p.slot !== slot || p.roleAbility === role,
+                ),
+              );
+              onCleared();
+            },
+          },
+        ],
+      });
+      return;
     }
-    return true; // Default to returning true if no placements exist in the slot
+    onCleared(); // No placements in the slot, nothing to confirm
   };
 
   const clearAll = () => {
-    if (confirm("Clear all abilities from the timeline?")) {
-      setPlacements([]);
-    }
+    openDialog({
+      body: "Clear all abilities from the timeline?",
+      buttons: [
+        { label: "Cancel", onClick: closeDialog },
+        {
+          label: "Clear All",
+          onClick: () => {
+            closeDialog();
+            setPlacements([]);
+          },
+        },
+      ],
+    });
   };
 
   /**

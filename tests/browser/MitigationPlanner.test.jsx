@@ -83,7 +83,6 @@ describe("clearing a row", () => {
   afterEach(() => {
     cleanup();
     localStorage.clear(); // Auto-save writes to localStorage
-    vi.restoreAllMocks();
   });
 
   /* Saves a plan directly into localStorage (bypassing drag-and-drop, which "placing an ability"
@@ -124,19 +123,18 @@ describe("clearing a row", () => {
     return label.closest("div").querySelector("select");
   }
 
-  test("swapping a slot's job with no existing placements changes the job immediately without prompting for confirmation", async () => {
+  test("swapping a slot's job with no existing placements changes the job immediately without opening a confirmation dialog", async () => {
     render(<App />);
-    const confirmSpy = vi.spyOn(window, "confirm");
 
     // Default: tank2 = "WAR" (Warrior), with no abilities placed on it.
     const tank2Select = getSlotSelect("Tank 2");
     fireEvent.change(tank2Select, { target: { value: "PLD" } });
 
-    expect(confirmSpy).not.toHaveBeenCalled();
     await expect.poll(() => tank2Select.value).toBe("PLD");
+    await expect.element(page.getByRole("dialog")).not.toBeInTheDocument();
   });
 
-  test("swapping a slot's job with placements prompts for confirmation, and confirming clears job-specific abilities but keeps role abilities matching the new job's role", async () => {
+  test("swapping a slot's job with placements opens a confirmation dialog, and confirming clears job-specific abilities but keeps role abilities matching the new job's role", async () => {
     // Holy Sheltron is Paladin-specific; Rampart is a shared Tank role ability - both on tank1.
     const holySheltron = getJobAbilities("PLD").find(
       (a) => a.id === "holy-sheltron",
@@ -148,7 +146,6 @@ describe("clearing a row", () => {
     ]);
 
     render(<App />);
-    vi.spyOn(window, "confirm").mockReturnValue(true);
     selectPlan(planId);
     await expect
       .element(page.getByAltText("Holy Sheltron"))
@@ -159,9 +156,13 @@ describe("clearing a row", () => {
     const tank1Select = getSlotSelect("Tank 1");
     fireEvent.change(tank1Select, { target: { value: "WAR" } });
 
-    expect(window.confirm).toHaveBeenCalledWith(
-      "Clear non-role abilities from Paladin?",
+    await expect
+      .element(page.getByText("Clear non-role abilities from Paladin?"))
+      .toBeInTheDocument();
+    fireEvent.click(
+      page.getByRole("button", { name: "Continue", exact: true }).element(),
     );
+
     await expect.poll(() => tank1Select.value).toBe("WAR");
     await expect
       .element(page.getByAltText("Holy Sheltron"))
@@ -169,7 +170,7 @@ describe("clearing a row", () => {
     await expect.element(page.getByAltText("Rampart")).toBeInTheDocument();
   });
 
-  test("swapping a slot's job with placements leaves the job and placements unchanged when the user cancels the confirmation", async () => {
+  test("swapping a slot's job with placements leaves the job and placements unchanged when the user cancels the confirmation dialog", async () => {
     const holySheltron = getJobAbilities("PLD").find(
       (a) => a.id === "holy-sheltron",
     );
@@ -178,7 +179,6 @@ describe("clearing a row", () => {
     ]);
 
     render(<App />);
-    vi.spyOn(window, "confirm").mockReturnValue(false);
     selectPlan(planId);
     await expect
       .element(page.getByAltText("Holy Sheltron"))
@@ -187,14 +187,21 @@ describe("clearing a row", () => {
     const tank1Select = getSlotSelect("Tank 1");
     fireEvent.change(tank1Select, { target: { value: "WAR" } });
 
-    expect(window.confirm).toHaveBeenCalled();
+    await expect
+      .element(page.getByText("Clear non-role abilities from Paladin?"))
+      .toBeInTheDocument();
+    fireEvent.click(
+      page.getByRole("button", { name: "Cancel", exact: true }).element(),
+    );
+
+    await expect.element(page.getByRole("dialog")).not.toBeInTheDocument();
     await expect.poll(() => tank1Select.value).toBe("PLD");
     await expect
       .element(page.getByAltText("Holy Sheltron"))
       .toBeInTheDocument();
   });
 
-  test("clicking a party slot's clear-row button removes its placements without prompting for confirmation", async () => {
+  test("clicking a party slot's clear-row button removes its placements without opening a confirmation dialog", async () => {
     const holySheltron = getJobAbilities("PLD").find(
       (a) => a.id === "holy-sheltron",
     );
@@ -205,7 +212,6 @@ describe("clearing a row", () => {
     ]);
 
     render(<App />);
-    const confirmSpy = vi.spyOn(window, "confirm");
     selectPlan(planId);
     await expect
       .element(page.getByAltText("Holy Sheltron"))
@@ -214,10 +220,10 @@ describe("clearing a row", () => {
     // PartyList's clear-row button - title comes from `Clear ${job.name} row` for the slot's current job.
     fireEvent.click(page.getByTitle("Clear Paladin row").element());
 
-    expect(confirmSpy).not.toHaveBeenCalled();
     await expect
       .element(page.getByAltText("Holy Sheltron"))
       .not.toBeInTheDocument();
     await expect.element(page.getByAltText("Rampart")).not.toBeInTheDocument();
+    await expect.element(page.getByRole("dialog")).not.toBeInTheDocument();
   });
 });
