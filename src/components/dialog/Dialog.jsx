@@ -28,7 +28,7 @@ export default function Dialog({
   headerContent,
   bodyContent,
   footerContent,
-  buttons = [{ label: "Close", onClick: onCloseDialog }], // Default close button
+  buttons = [{ label: "Close", onClick: onCloseDialog, variant: "primary" }], // Default close button
 }) {
   const dialogRef = useRef(null);
 

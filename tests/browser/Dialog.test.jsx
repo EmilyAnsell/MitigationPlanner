@@ -49,6 +49,60 @@ describe("Dialog mouse interaction", () => {
   });
 });
 
+describe("Dialog button variants", () => {
+  afterEach(() => {
+    cleanup();
+  });
+
+  test("a button with variant 'danger' renders the red classes", async () => {
+    const buttons = [{ label: "Delete", onClick: vi.fn(), variant: "danger" }];
+    render(
+      <Dialog isDialogOpen={true} onCloseDialog={vi.fn()} buttons={buttons} />,
+    );
+
+    expect(page.getByText("Delete").element().className).toContain(
+      "bg-red-600",
+    );
+  });
+
+  test("a button with variant 'secondary' renders the gray classes", async () => {
+    const buttons = [
+      { label: "Cancel", onClick: vi.fn(), variant: "secondary" },
+    ];
+    render(
+      <Dialog isDialogOpen={true} onCloseDialog={vi.fn()} buttons={buttons} />,
+    );
+
+    expect(page.getByText("Cancel").element().className).toContain(
+      "bg-gray-600",
+    );
+  });
+
+  test("a button with an omitted variant still renders the default blue classes", async () => {
+    const buttons = [{ label: "Confirm", onClick: vi.fn() }];
+    render(
+      <Dialog isDialogOpen={true} onCloseDialog={vi.fn()} buttons={buttons} />,
+    );
+
+    expect(page.getByText("Confirm").element().className).toContain(
+      "bg-blue-600",
+    );
+  });
+
+  test("a button with an unrecognized variant renders without error and falls back to the default blue classes", async () => {
+    const buttons = [
+      { label: "Confirm", onClick: vi.fn(), variant: "bigbutton" },
+    ];
+    render(
+      <Dialog isDialogOpen={true} onCloseDialog={vi.fn()} buttons={buttons} />,
+    );
+
+    expect(page.getByText("Confirm").element().className).toContain(
+      "bg-blue-600",
+    );
+  });
+});
+
 describe("Open/Closed rendering", () => {
   afterEach(() => {
     cleanup();

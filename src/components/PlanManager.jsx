@@ -74,7 +74,7 @@ export default function PlanManager({
         />
       ),
       buttons: [
-        { label: "Cancel", onClick: closeDialog },
+        { label: "Cancel", onClick: closeDialog, variant: "secondary" },
         { label: "Save", onClick: submitSaveAs },
       ],
     });
@@ -86,7 +86,7 @@ export default function PlanManager({
     openDialog({
       body: `Delete plan "${currentPlan?.planName}"?`,
       buttons: [
-        { label: "Cancel", onClick: closeDialog },
+        { label: "Cancel", onClick: closeDialog, variant: "secondary" },
         {
           label: "Delete",
           onClick: () => {
@@ -94,6 +94,7 @@ export default function PlanManager({
             onPlanChange(null);
             openDialog({ body: "Plan deleted" });
           },
+          variant: "danger",
         },
       ],
     });

@@ -121,9 +121,10 @@ export default function MitigationPlanner() {
         header: "Job Swap",
         body: `Clear non-role abilities from ${JOBS[partyComp[slot]]?.name || slot}?`,
         buttons: [
-          { label: "Cancel", onClick: closeDialog },
+          { label: "Cancel", variant: "secondary", onClick: closeDialog },
           {
             label: "Continue",
+            variant: "danger",
             onClick: () => {
               closeDialog();
               setPlacements(
@@ -145,9 +146,10 @@ export default function MitigationPlanner() {
     openDialog({
       body: "Clear all abilities from the timeline?",
       buttons: [
-        { label: "Cancel", onClick: closeDialog },
+        { label: "Cancel", variant: "secondary", onClick: closeDialog },
         {
           label: "Clear All",
+          variant: "danger",
           onClick: () => {
             closeDialog();
             setPlacements([]);
