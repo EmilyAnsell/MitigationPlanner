@@ -1,4 +1,4 @@
-import { useState, useRef } from "react";
+import { useImperativeHandle, useRef, useState } from "react";
 import { Save, Download, Upload, Trash2, Plus } from "lucide-react";
 import {
   getPlansByBoss,
@@ -8,6 +8,7 @@ import {
   exportPlan,
   importPlan,
 } from "../utils/planStorage";
+import { closeDialog, openDialog } from "../utils/dialogStore";
 
 export default function PlanManager({
   currentTimeline,
@@ -16,8 +17,6 @@ export default function PlanManager({
   partyComp,
   placements,
 }) {
-  const [showSaveAsDialog, setShowSaveAsDialog] = useState(false);
-  const [newPlanName, setNewPlanName] = useState("");
   const fileInputRef = useRef(null);
 
   const plansForBoss = getPlansByBoss(currentTimeline);
@@ -26,7 +25,7 @@ export default function PlanManager({
   const handleSave = () => {
     if (!currentPlanId) {
       // No plan selected, prompt for name
-      setShowSaveAsDialog(true);
+      openSaveAsDialog();
       return;
     }
 
@@ -37,37 +36,68 @@ export default function PlanManager({
       placements,
     });
 
-    alert("Plan saved!");
+    openDialog({ body: "Plan saved!" });
   };
 
-  const handleSaveAs = () => {
-    if (!newPlanName.trim()) {
-      alert("Please enter a plan name");
-      return;
-    }
+  const openSaveAsDialog = () => {
+    const nameRef = { current: "" };
+    const errorHandleRef = { current: null };
 
-    const newPlanId = generatePlanId(currentTimeline, newPlanName);
-    savePlan(newPlanId, {
-      bossId: currentTimeline,
-      planName: newPlanName,
-      partyComp,
-      placements,
+    const submitSaveAs = () => {
+      const trimmedName = nameRef.current.trim();
+      if (!trimmedName) {
+        errorHandleRef.current?.showError();
+        return;
+      }
+
+      const newPlanId = generatePlanId(currentTimeline, trimmedName);
+      savePlan(newPlanId, {
+        bossId: currentTimeline,
+        planName: trimmedName,
+        partyComp,
+        placements,
+      });
+
+      onPlanChange(newPlanId);
+      openDialog({ body: "Plan saved as new!" });
+    };
+
+    openDialog({
+      header: "Save Plan As",
+      body: (
+        <SaveAsBody
+          ref={errorHandleRef}
+          onNameChange={(value) => {
+            nameRef.current = value;
+          }}
+          onSubmit={submitSaveAs}
+        />
+      ),
+      buttons: [
+        { label: "Cancel", onClick: closeDialog, variant: "secondary" },
+        { label: "Save", onClick: submitSaveAs },
+      ],
     });
-
-    setShowSaveAsDialog(false);
-    setNewPlanName("");
-    onPlanChange(newPlanId);
-    alert("Plan saved as new!");
   };
 
   const handleDelete = () => {
     if (!currentPlanId) return;
 
-    if (confirm(`Delete plan "${currentPlan?.planName}"?`)) {
-      deletePlan(currentPlanId);
-      onPlanChange(null);
-      alert("Plan deleted");
-    }
+    openDialog({
+      body: `Delete plan "${currentPlan?.planName}"?`,
+      buttons: [
+        { label: "Cancel", onClick: closeDialog, variant: "secondary" },
+        {
+          label: "Delete",
+          onClick: () => {
+            deletePlan(currentPlanId);
+            onPlanChange(null);
+            openDialog({ body: "Plan deleted" });
+          },
+          variant: "danger",
+        },
+      ],
+    });
   };
 
   const handleExport = () => {
@@ -93,7 +123,7 @@ export default function PlanManager({
     importPlan(file, (data) => {
       const newPlanId = generatePlanId(
         data.bossId || currentTimeline,
-        data.planName || "Imported Plan"
+        data.planName || "Imported Plan",
       );
       savePlan(newPlanId, {
         bossId: data.bossId || currentTimeline,
@@ -103,7 +133,7 @@ export default function PlanManager({
       });
 
       onPlanChange(newPlanId);
-      alert("Plan imported successfully!");
+      openDialog({ body: "Plan imported successfully!" });
     });
 
     // Reset input
@@ -116,7 +146,7 @@ export default function PlanManager({
       <select
         value={currentPlanId || ""}
         onChange={(e) => onPlanChange(e.target.value || null)}
-        className="bg-gray-700 rounded px-3 py-2"
+        className="px-3 py-2 bg-gray-700 rounded"
       >
         <option value="">New Plan (Unsaved)</option>
         {plansForBoss.map((plan) => (
@@ -129,7 +159,7 @@ export default function PlanManager({
       {/* Action Buttons */}
       <button
         onClick={handleSave}
-        className="flex items-center gap-1 px-3 py-2 bg-blue-600 hover:bg-blue-700 rounded"
+        className="flex items-center gap-1 px-3 py-2 bg-blue-600 rounded hover:bg-blue-700"
         title="Save"
       >
         <Save size={16} />
@@ -137,8 +167,8 @@ export default function PlanManager({
       </button>
 
       <button
-        onClick={() => setShowSaveAsDialog(true)}
-        className="flex items-center gap-1 px-3 py-2 bg-blue-600 hover:bg-blue-700 rounded"
+        onClick={openSaveAsDialog}
+        className="flex items-center gap-1 px-3 py-2 bg-blue-600 rounded hover:bg-blue-700"
         title="Save As"
       >
         <Plus size={16} />
@@ -147,7 +177,7 @@ export default function PlanManager({
 
       <button
         onClick={handleExport}
-        className="flex items-center gap-1 px-3 py-2 bg-gray-600 hover:bg-gray-700 rounded"
+        className="flex items-center gap-1 px-3 py-2 bg-gray-600 rounded hover:bg-gray-700"
         title="Export"
       >
         <Download size={16} />
@@ -155,7 +185,7 @@ export default function PlanManager({
 
       <button
         onClick={handleImport}
-        className="flex items-center gap-1 px-3 py-2 bg-gray-600 hover:bg-gray-700 rounded"
+        className="flex items-center gap-1 px-3 py-2 bg-gray-600 rounded hover:bg-gray-700"
         title="Import"
       >
         <Upload size={16} />
@@ -164,7 +194,7 @@ export default function PlanManager({
       {currentPlanId && (
         <button
           onClick={handleDelete}
-          className="flex items-center gap-1 px-3 py-2 bg-red-600 hover:bg-red-700 rounded"
+          className="flex items-center gap-1 px-3 py-2 bg-red-600 rounded hover:bg-red-700"
           title="Delete"
         >
           <Trash2 size={16} />
@@ -179,43 +209,44 @@ export default function PlanManager({
         onChange={handleFileSelect}
         className="hidden"
       />
-
-      {/* Save dialog */}
-      {showSaveAsDialog && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-gray-800 rounded-lg p-6 max-w-md w-full">
-            <h3 className="text-xl font-semibold mb-4">Save Plan As</h3>
-            <input
-              type="text"
-              value={newPlanName}
-              onChange={(e) => setNewPlanName(e.target.value)}
-              placeholder="Enter plan name..."
-              className="w-full bg-gray-700 rounded px-3 py-2 mb-4"
-              autoFocus
-              onKeyPress={(e) => {
-                if (e.key === "Enter") handleSaveAs();
-              }}
-            />
-            <div className="flex gap-2 justify-end">
-              <button
-                onClick={() => {
-                  setShowSaveAsDialog(false);
-                  setNewPlanName("");
-                }}
-                className="px-4 py-2 bg-gray-600 hover:bg-gray-700 rounded"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={handleSaveAs}
-                className="px-4 py-2 bg-blue-600 hover:bg-blue-700 rounded"
-              >
-                Save
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
+  );
+}
+
+/**
+ * A body component for the Save As dialog. Exposes a showError() method via
+ * ref so submitSaveAs (owned by the sibling Save button in DialogFooter) can
+ * trigger this component's own "needs a name" state.
+ * @param {Object} ref - imperative handle exposing showError()
+ * @param {Function} onNameChange - called with the input's current value on each keystroke
+ * @param {Function} onSubmit - called when Enter is pressed inside the input
+ */
+function SaveAsBody({ ref, onNameChange, onSubmit }) {
+  const [needsName, setNeedsName] = useState(false);
+
+  useImperativeHandle(
+    ref,
+    () => ({
+      showError: () => setNeedsName(true),
+    }),
+    [],
+  );
+
+  return (
+    <>
+      <input
+        type="text"
+        defaultValue=""
+        onChange={(e) => onNameChange(e.target.value)}
+        onKeyDown={(e) => {
+          if (e.key === "Enter") onSubmit();
+        }}
+        placeholder="Enter plan name..."
+        className="w-full px-3 py-2 bg-gray-700 rounded"
+      />
+      {needsName && (
+        <div className="text-red-500">*Please enter a plan name.</div>
+      )}
+    </>
   );
 }

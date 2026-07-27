@@ -1,3 +1,5 @@
+import { openDialog } from "./dialogStore";
+
 const STORAGE_PREFIX = "ffxiv-mit-plan-";
 
 export function getAllPlans() {
@@ -33,7 +35,7 @@ export function savePlan(planId, data) {
     JSON.stringify({
       ...data,
       lastModified: new Date().toISOString(),
-    })
+    }),
   );
 }
 
@@ -74,7 +76,7 @@ export function importPlan(file, callback) {
       callback(data);
     } catch (error) {
       console.error("Error importing plan:", error);
-      alert("Failed to import plan. Invalid file format.");
+      openDialog({ body: "Failed to import plan. Invalid file format." });
     }
   };
   reader.readAsText(file);
