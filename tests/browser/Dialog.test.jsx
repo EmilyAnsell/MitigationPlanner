@@ -234,4 +234,34 @@ describe("Dialog keyboard interaction", () => {
     fireEvent.keyDown(document, { key: "Tab" });
     await expect.element(page.getByPlaceholder("name")).toHaveFocus();
   });
+
+  test("swapping content while the dialog stays open re-focuses and rebuilds the focus trap", async () => {
+    // onCloseDialog is held stable across rerenders so the focus effect only has the changed
+    // content to react to - this is the in-place swap a confirm-then-result dialog performs.
+    const onCloseDialog = vi.fn();
+    const { rerender } = render(
+      <Dialog
+        isDialogOpen={true}
+        onCloseDialog={onCloseDialog}
+        buttons={[
+          { label: "Cancel", onClick: vi.fn() },
+          { label: "Delete", onClick: vi.fn() },
+        ]}
+      />,
+    );
+    await expect.element(page.getByText("Cancel")).toHaveFocus();
+
+    rerender(
+      <Dialog
+        isDialogOpen={true}
+        onCloseDialog={onCloseDialog}
+        buttons={[{ label: "Close", onClick: vi.fn() }]}
+      />,
+    );
+
+    // The new button gets focus, and the trap navigates the new list (not the removed buttons).
+    await expect.element(page.getByText("Close")).toHaveFocus();
+    fireEvent.keyDown(document, { key: "Tab" });
+    await expect.element(page.getByText("Close")).toHaveFocus();
+  });
 });

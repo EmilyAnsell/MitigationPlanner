@@ -28,10 +28,21 @@ export default function Dialog({
   headerContent,
   bodyContent,
   footerContent,
-  buttons = [{ label: "Close", onClick: onCloseDialog, variant: "primary" }], // Default close button
+  buttons,
 }) {
   const dialogRef = useRef(null);
 
+  /* Default close button. Resolved here (not as a destructuring default) so the raw `buttons`
+    prop stays stable in the effect deps below - a fresh default array every render would
+    otherwise re-run the focus effect on unrelated re-renders. */
+  const buttonList = buttons ?? [
+    { label: "Close", onClick: onCloseDialog, variant: "primary" },
+  ];
+
+  /* Re-run on content change (buttons/body/header/footer), not just open/close: a dialog that
+     swaps its content in place while staying open (e.g. a confirm turning into a result message)
+     must rebuild the focus trap and move focus to the new first element, otherwise the captured
+     element list points at removed nodes. */
   useEffect(() => {
     if (!isDialogOpen) return;
 
@@ -66,7 +77,14 @@ export default function Dialog({
 
     document.addEventListener("keydown", handleKeyDown);
     return () => document.removeEventListener("keydown", handleKeyDown);
-  }, [isDialogOpen, onCloseDialog]);
+  }, [
+    isDialogOpen,
+    onCloseDialog,
+    headerContent,
+    bodyContent,
+    footerContent,
+    buttons,
+  ]);
 
   return isDialogOpen ? (
     <div
@@ -82,7 +100,7 @@ export default function Dialog({
       >
         <DialogHeader content={headerContent} />
         <DialogBody content={bodyContent} />
-        <DialogFooter content={footerContent} buttonList={buttons} />
+        <DialogFooter content={footerContent} buttonList={buttonList} />
       </div>
     </div>
   ) : null;
