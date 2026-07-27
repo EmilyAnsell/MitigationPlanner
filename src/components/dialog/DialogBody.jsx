@@ -1,3 +1,3 @@
-export const DialogBody = ({ content }) => {
+export default function DialogBody({ content }) {
   return content !== undefined ? <div>{content}</div> : null;
-};
+}

@@ -4,7 +4,7 @@ const BUTTON_VARIANT_CLASSES = {
   danger: "bg-red-600 hover:bg-red-700 focus:ring-red-400",
 };
 
-export const DialogFooter = ({ content, buttonList = [] }) => {
+export default function DialogFooter({ content, buttonList = [] }) {
   return (
     <div className="flex justify-end gap-2 mt-4">
       {content}
@@ -19,4 +19,4 @@ export const DialogFooter = ({ content, buttonList = [] }) => {
       ))}
     </div>
   );
-};
+}
