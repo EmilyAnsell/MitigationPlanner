@@ -6,10 +6,9 @@ import { JOBS, PARTY_SLOTS, SLOT_LABELS } from "../data/jobs";
  * Collapsible panel for choosing which job fills each of the 8 party slots.
  * Each slot renders a job dropdown filtered to the roles valid for that slot,
  * and swapping a job clears the row's incompatible placements via `onClearRow`.
- * @param {Object} props
- * @param {Object} props.partyComp - Map of party slot key to selected job ID (or null)
- * @param {(comp: Object) => void} props.setPartyComp - Setter for the party composition
- * @param {(slot: string, isRoleSwap?: boolean, role?: string|null) => boolean} props.onClearRow - Clears a row on job swap; returns false if the user cancels, which aborts the swap
+ * @param {Object} partyComp - Map of party slot key to selected job ID (or null)
+ * @param {(comp: Object) => void} setPartyComp - Setter for the party composition
+ * @param {(slot: string, isWithinRoleSwap?: boolean, role?: string|null, onCleared?: () => void) => void} onClearRow - Clears a row on job swap; calls `onCleared` once the row is actually cleared (immediately, or after the user confirms), never if the user cancels
  * @returns {JSX.Element}
  */
 export default function PartyComposition({
@@ -91,16 +90,19 @@ export default function PartyComposition({
                 <select
                   value={partyComp[slot] || ""}
                   onChange={(e) => {
-                    if (e.target.value !== partyComp[slot]) {
-                      const subRole = JOBS[e.target.value]?.role; // Need to consider melee/phys/magic for role abilities
-                      if (!onClearRow(slot, true, subRole)) {
-                        return; // If the user cancels clearing the row, don't change the job selection
-                      }
+                    const newJobId = e.target.value;
+                    const applyJobChange = () =>
+                      setPartyComp({
+                        ...partyComp,
+                        [slot]: newJobId || null,
+                      });
+
+                    if (newJobId !== partyComp[slot]) {
+                      const subRole = JOBS[newJobId]?.role; // Need to consider melee/phys/magic for role abilities
+                      onClearRow(slot, true, subRole, applyJobChange);
+                    } else {
+                      applyJobChange();
                     }
-                    setPartyComp({
-                      ...partyComp,
-                      [slot]: e.target.value || null,
-                    });
                   }}
                   className="w-full px-3 py-2 bg-gray-700 rounded"
                 >
