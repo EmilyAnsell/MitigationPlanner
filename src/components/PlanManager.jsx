@@ -1,4 +1,4 @@
-import { useState, useRef } from "react";
+import { useImperativeHandle, useRef, useState } from "react";
 import { Save, Download, Upload, Trash2, Plus } from "lucide-react";
 import {
   getPlansByBoss,
@@ -17,8 +17,6 @@ export default function PlanManager({
   partyComp,
   placements,
 }) {
-  const [showSaveAsDialog, setShowSaveAsDialog] = useState(false);
-  const [newPlanName, setNewPlanName] = useState("");
   const fileInputRef = useRef(null);
 
   const plansForBoss = getPlansByBoss(currentTimeline);
@@ -27,7 +25,7 @@ export default function PlanManager({
   const handleSave = () => {
     if (!currentPlanId) {
       // No plan selected, prompt for name
-      setShowSaveAsDialog(true);
+      openSaveAsDialog();
       return;
     }
 
@@ -41,24 +39,45 @@ export default function PlanManager({
     openDialog({ body: "Plan saved!" });
   };
 
-  const handleSaveAs = () => {
-    if (!newPlanName.trim()) {
-      openDialog({ body: "Please enter a plan name" });
-      return;
-    }
+  const openSaveAsDialog = () => {
+    const nameRef = { current: "" };
+    const errorHandleRef = { current: null };
 
-    const newPlanId = generatePlanId(currentTimeline, newPlanName);
-    savePlan(newPlanId, {
-      bossId: currentTimeline,
-      planName: newPlanName,
-      partyComp,
-      placements,
+    const submitSaveAs = () => {
+      const trimmedName = nameRef.current.trim();
+      if (!trimmedName) {
+        errorHandleRef.current?.showError();
+        return;
+      }
+
+      const newPlanId = generatePlanId(currentTimeline, trimmedName);
+      savePlan(newPlanId, {
+        bossId: currentTimeline,
+        planName: trimmedName,
+        partyComp,
+        placements,
+      });
+
+      onPlanChange(newPlanId);
+      openDialog({ body: "Plan saved as new!" });
+    };
+
+    openDialog({
+      header: "Save Plan As",
+      body: (
+        <SaveAsBody
+          ref={errorHandleRef}
+          onNameChange={(value) => {
+            nameRef.current = value;
+          }}
+          onSubmit={submitSaveAs}
+        />
+      ),
+      buttons: [
+        { label: "Cancel", onClick: closeDialog },
+        { label: "Save", onClick: submitSaveAs },
+      ],
     });
-
-    setShowSaveAsDialog(false);
-    setNewPlanName("");
-    onPlanChange(newPlanId);
-    openDialog({ body: "Plan saved as new!" });
   };
 
   const handleDelete = () => {
@@ -71,7 +90,6 @@ export default function PlanManager({
         {
           label: "Delete",
           onClick: () => {
-            closeDialog();
             deletePlan(currentPlanId);
             onPlanChange(null);
             openDialog({ body: "Plan deleted" });
@@ -148,7 +166,7 @@ export default function PlanManager({
       </button>
 
       <button
-        onClick={() => setShowSaveAsDialog(true)}
+        onClick={openSaveAsDialog}
         className="flex items-center gap-1 px-3 py-2 bg-blue-600 rounded hover:bg-blue-700"
         title="Save As"
       >
@@ -190,46 +208,44 @@ export default function PlanManager({
         onChange={handleFileSelect}
         className="hidden"
       />
-
-      {/* Save dialog
-      - includes hacky temporary fix to set z-40 so that the "Please enter a plan name" dialog appears on top.
-      TODO: refactor this saveAsDialog into a Dialog via openDialog(), updating the dialog with a red-text warning
-      when an empty string is submitted rather than another layer of pop-ups*/}
-      {showSaveAsDialog && (
-        <div className="fixed inset-0 z-40 flex items-center justify-center bg-black bg-opacity-50">
-          <div className="w-full max-w-md p-6 bg-gray-800 rounded-lg">
-            <h3 className="mb-4 text-xl font-semibold">Save Plan As</h3>
-            <input
-              type="text"
-              value={newPlanName}
-              onChange={(e) => setNewPlanName(e.target.value)}
-              placeholder="Enter plan name..."
-              className="w-full px-3 py-2 mb-4 bg-gray-700 rounded"
-              autoFocus
-              onKeyPress={(e) => {
-                if (e.key === "Enter") handleSaveAs();
-              }}
-            />
-            <div className="flex justify-end gap-2">
-              <button
-                onClick={() => {
-                  setShowSaveAsDialog(false);
-                  setNewPlanName("");
-                }}
-                className="px-4 py-2 bg-gray-600 rounded hover:bg-gray-700"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={handleSaveAs}
-                className="px-4 py-2 bg-blue-600 rounded hover:bg-blue-700"
-              >
-                Save
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
+  );
+}
+
+/**
+ * A body component for the Save As dialog. Exposes a showError() method via
+ * ref so submitSaveAs (owned by the sibling Save button in DialogFooter) can
+ * trigger this component's own "needs a name" state.
+ * @param {Object} ref - imperative handle exposing showError()
+ * @param {Function} onNameChange - called with the input's current value on each keystroke
+ * @param {Function} onSubmit - called when Enter is pressed inside the input
+ */
+function SaveAsBody({ ref, onNameChange, onSubmit }) {
+  const [needsName, setNeedsName] = useState(false);
+
+  useImperativeHandle(
+    ref,
+    () => ({
+      showError: () => setNeedsName(true),
+    }),
+    [],
+  );
+
+  return (
+    <>
+      <input
+        type="text"
+        defaultValue=""
+        onChange={(e) => onNameChange(e.target.value)}
+        onKeyDown={(e) => {
+          if (e.key === "Enter") onSubmit();
+        }}
+        placeholder="Enter plan name..."
+        className="w-full px-3 py-2 bg-gray-700 rounded"
+      />
+      {needsName && (
+        <div className="text-red-500">*Please enter a plan name.</div>
+      )}
+    </>
   );
 }
