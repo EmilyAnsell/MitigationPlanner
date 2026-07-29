@@ -79,9 +79,9 @@ draft would otherwise be silently dropped.
    and `sourcePlanId` (the plan it forked from, or `null` for from-scratch).
    The `isDraft` flag — not the id string — is the source of truth for "which key
    is the draft," so **"at most one draft" = always delete the existing draft
-   before writing a new one.** Draft id follows `${bossId}-<sanitized>-Draft`.
+   before writing a new one.** Draft id follows `${bossId}-<sanitized>-draft`.
 2. **From-scratch drafts** get `sourcePlanId: null`, `planName: "New Plan
-   (draft)"`, id `${bossId}-new-plan-Draft`. **Save** on a source-less draft
+   (draft)"`, id `${bossId}-new-plan-draft`. **Save** on a source-less draft
    falls through to the **Save As** flow (prompt for a name).
 3. **Party-comp-only edits count as changes** (matches today's effect deps).
 4. **Selector wording.** Static `"New Plan (Unsaved)"` stays as the "start fresh"
@@ -127,7 +127,7 @@ mappings). **First verify** whether the `node` (jsdom) project gives you a real
   `planId` (or `null`).
 - `saveDraft({ bossId, planName, partyComp, placements, sourcePlanId })` —
   `deleteDraft()` first, then write a key with `isDraft: true`, `sourcePlanId`,
-  and id `${bossId}-<sanitized>-Draft`. Return the draft id.
+  and id `${bossId}-<sanitized>-draft`. Return the draft id.
 - `deleteDraft()` — remove the draft if present.
 - `commitDraft(draft)` — `savePlan(draft.sourcePlanId, {…original meta, partyComp,
   placements})` then `deleteDraft()`. Only valid when `sourcePlanId` is set.
