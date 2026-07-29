@@ -17,16 +17,7 @@ after a refresh the app boots to "New Plan (Unsaved)", and the *next* edit would
 otherwise silently fork a new draft over the persisted one. Prompting up front
 makes the existing draft visible before that can happen.
 
-## 2. Cancel-with-revert on the eviction warning
-
-The core issue ships option **(b)** for the edit-time eviction warning: when a
-first edit would fork a new draft while a *different* draft exists, the dialog
-offers only **Save previous / Discard previous** (both keep the new edit). It has
-**no Cancel**, because the triggering edit is usually a completed drag-drop and
-reverting it is fiddly.
-
-Once an **Undo** mechanism exists (see #3), add a third **Cancel** option that
-reverts the just-applied edit and keeps the old draft untouched.
+## -- Goal 2 Resolved via Initial Implementation Change --
 
 ## 3. Undo button (the real fix)
 

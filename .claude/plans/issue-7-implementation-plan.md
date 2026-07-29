@@ -66,8 +66,8 @@ draft would otherwise be silently dropped.
   "New Plan (Unsaved)"; the user re-selects the draft if they want it).
 - **Save** commits the draft onto its original plan, then removes the draft.
 - **Save As** writes a brand-new plan, then removes the draft.
-- **Switching boss** while a draft exists prompts: **Save / Discard and
-  Continue / Cancel**.
+- **Switching boss, or switching to another plan,** while a draft exists prompts:
+  **Save / Discard and Continue / Cancel**.
 - The draft is **pruned** when a new draft is created, or on Save / Save As /
   Discard.
 
@@ -87,14 +87,26 @@ draft would otherwise be silently dropped.
 4. **Selector wording.** Static `"New Plan (Unsaved)"` stays as the "start fresh"
    choice; an active from-scratch draft appears separately as `"New Plan
    (draft)"`.
-5. **Loading / importing a plan leaves the draft alone** — no warning, draft
-   retained and still selectable.
-6. **Eviction warning uses option (b):** when a first edit would fork a *new*
-   draft while a *different* draft already exists, prompt with **Save previous /
-   Discard previous** (both continue with the new edit — no Cancel, no
-   drop-revert). This is a stop-gap to protect destructive loss until an Undo
-   button exists; the philosophy is to *reduce* prompts, so
-   Cancel-with-revert is deferred (see future-goals doc).
+5. **Switching to another saved plan (or to "New Plan (Unsaved)") while a draft
+   exists prompts** with **Save / Discard and Continue / Cancel**, mirroring the
+   boss-switch flow (Step 6). The draft is resolved at the natural moment —
+   *leaving* the plan — not on the first edit of the newly-loaded plan (which is
+   a surprising point, since the user has already moved on and the modal wouldn't
+   even be saving what's currently on screen). **Selecting the draft itself does
+   not prompt** (you're returning to it, not abandoning it). **Importing leaves
+   the draft alone** — the draft is safe in storage even though import replaces
+   the on-screen placements; no prompt.
+6. **No edit-time eviction warning.** Because a draft is always resolved when you
+   switch away from its plan (decision #5) or its boss (Step 6), you can never be
+   editing plan B while a plan-A draft lingers — so the cross-plan eviction case
+   is designed out of normal use. The **one residual path** is a draft orphaned
+   in storage after a **refresh** (decision #7: not auto-loaded): editing "New
+   Plan (Unsaved)" without re-selecting would let `saveDraft` replace it
+   silently. The "at most one draft" invariant still holds mechanically
+   (Step 1 `saveDraft` deletes-first); protecting the orphan's *contents* is the
+   job of the **"Draft available" dialog on load** (future-goals #1), the proper
+   fix for the refresh path. Consistent with the philosophy of *reducing* prompts
+   until an Undo mechanism lands.
 7. **Refresh** does **not** reload the draft; app boots to "New Plan (Unsaved)".
 8. **Save of a plain saved plan with no draft** keeps today's behavior
    (effective no-op re-save). "Disable Save when nothing to save" → future.
@@ -154,6 +166,13 @@ draft in selector."
 - Selecting the draft from the selector loads its placements.
 - Selecting a different plan and back leaves the draft present in the selector.
 
+> **Forward note:** Step 5 adds a Save/Discard/Cancel prompt to plan switching.
+> When it lands, this "select a different plan and back" scenario will route
+> through that dialog (e.g. **Cancel** to stay put, or **Discard** to drop the
+> draft), so this test is updated then to drive the dialog. That's an
+> intentional behavior change (a design decision), not a test weakened to force
+> a pass — see `CLAUDE.md` on when tests may change.
+
 **Then implement:** likely nothing beyond confirming `getPlansByBoss` surfaces
 the draft and `handlePlanChange` loads it. If the selector filters drafts out,
 stop filtering. **Do not** add mount-restore of the draft.
@@ -182,7 +201,9 @@ finalized plan."
 - **Guard test:** load a plan and switch away **without editing** → **no** draft
   is created.
 
-*(Cross-plan eviction is intentionally NOT tested here — that's Step 5.)*
+*(Switching-away protection is not tested here — the plan-switch prompt is
+Step 5. Here, forking simply replaces any existing draft via `saveDraft`'s
+delete-first, upholding the single-draft invariant mechanically.)*
 
 **Then implement** the new effect behavior on a genuine edit:
 - Current selection **is the draft** → `saveDraft` in place (same `sourcePlanId`).
@@ -238,39 +259,51 @@ save-as replaces existing plan"; "No drafts remain after save-as"; commit path.
 
 ---
 
-## Step 5 — Eviction warning when a new draft would replace a different one (test-first)
+## Step 5 — Plan-switch confirmation dialog (test-first)
 
-**Files:** `src/App.jsx` (fork path from Step 3) + a shared dialog helper
+**Files:** `src/App.jsx` (`handlePlanChange`) + plan `<select>` in
+`src/components/PlanManager.jsx` + a **shared unsaved-draft confirmation helper**
+(reused by Step 6).
 
-**ACs covered:** protects "maximum one draft" from silent destructive loss
-(design decision #6, option **b**).
+**ACs covered:** "Plan switch dialog prompts appropriately"; "Dialog actions
+execute corresponding operations"; protects "maximum one draft" by resolving the
+draft when the user *leaves* the plan (design decision #5). Replaces the former
+edit-time eviction warning.
 
 **Write tests first** (browser):
-- Given `"Foo (draft)"` exists, select `Bar` and edit it → a dialog appears
-  offering **Save previous** and **Discard previous**.
-- **Discard previous** → old draft gone, `"Bar (draft)"` now the sole draft, the
-  new edit retained.
-- **Save previous** → the old draft is committed/saved-as first, then
-  `"Bar (draft)"` becomes the sole draft with the new edit retained.
-- Editing a plan that **is** the current draft's source (or the draft itself)
-  does **not** trigger the dialog.
+- With **no draft**, switching to another plan loads it immediately (no dialog).
+- With a draft, switching to a **different** plan opens a **Save / Discard and
+  Continue / Cancel** dialog.
+- **Cancel** → selection unchanged, draft intact, `<select>` shows the original
+  plan.
+- **Discard and Continue** → draft removed, the chosen plan loaded.
+- **Save** → commits (or Save-As for a from-scratch draft), then loads the chosen
+  plan.
+- **Selecting the draft itself does not prompt** — it loads (via the Step 3
+  just-loaded guard, so no second draft is forked).
+- Switching to **"New Plan (Unsaved)"** while a draft exists prompts the same way
+  (it, too, abandons the draft).
 
-**Then implement:** in the Step 3 fork path, before creating a new draft, check
-`getDraft()`. If a draft exists whose identity differs from what's about to be
-forked, `openDialog` (dialogStore) with two buttons:
-- **Save previous** → run the Save flow on the existing draft (commit if it has
-  a source, else Save-As), then proceed to create the new draft.
-- **Discard previous** (`variant: "danger"`) → `deleteDraft()`, then create the
-  new draft.
+**Then implement:** factor a shared helper (e.g. `confirmDiscardDraft({ onSave,
+onDiscard })` or an inline `openDialog` config builder) that both this step and
+Step 6 use — one place that knows the three buttons and the commit-vs-Save-As
+branch. In `handlePlanChange(newPlanId)`, `getDraft()`:
+- No draft, **or** the target *is* the draft → switch/load as today.
+- Draft exists and target differs → `openDialog` with three buttons:
+  1. **Save** — Save flow (commit for a sourced draft, Save-As for from-scratch),
+     then load the chosen plan.
+  2. **Discard and Continue** (`variant: "danger"`) — `deleteDraft()`, then load.
+  3. **Cancel** (`variant: "secondary"`) — do nothing.
 
-No Cancel / no drop-revert in this version (deferred — see future-goals). Because
-the drag has already dropped, the new edit is kept in both branches.
+**Watch out for:** the plan `<select>` is controlled by `currentPlanId`. Follow
+the **`clearRow` pattern** (same as Step 6) — defer the actual load to inside the
+confirm handlers; on Cancel you never call the load, so the dropdown snaps back on
+its own. Verify `onChange` doesn't optimistically set state first. Selecting the
+draft option must route through the just-loaded guard so it doesn't re-fork.
 
-**Watch out for:** don't fire this when the edit belongs to the existing draft;
-only when a *genuinely different* draft would be born.
-
-**Done when:** a conflicting fork always prompts, both options keep the new edit,
-and same-draft edits stay silent.
+**Done when:** switching plans prompts only when a draft exists and the target is
+a *different* plan, each button does the right thing, and returning to the draft
+stays silent.
 
 ---
 
@@ -290,7 +323,9 @@ execute corresponding operations."
 - **Discard and Continue** → draft removed, boss switched.
 - **Save** → commits (or Save-As for a from-scratch draft), then switches.
 
-**Then implement:** in `handleTimelineChange(newTimeline)`, `getDraft()`:
+**Then implement:** in `handleTimelineChange(newTimeline)`, `getDraft()`, and
+**reuse the shared unsaved-draft confirmation helper from Step 5** (identical
+three buttons; only the deferred action differs — switch boss vs. load plan):
 - No draft → switch as today.
 - Draft exists → `openDialog` with three buttons:
   1. **Save** — Save flow (commit for a sourced draft, Save-As for from-scratch),
@@ -340,6 +375,8 @@ Run `npm run test:run` (all green) and walk the issue's ACs manually in
 - [ ] New-name Save As creates a new plan, no draft left
 - [ ] Same-name Save As replaces the existing plan
 - [ ] Boss change dialog prompts appropriately (only when a draft exists)
+- [ ] Plan switch dialog prompts appropriately (only when a draft exists and the
+      target differs from the draft); returning to the draft stays silent
 - [ ] Dialog actions (Save / Discard and Continue / Cancel) each execute correctly
 - [ ] No drafts remain after Discard or Save-As
 
