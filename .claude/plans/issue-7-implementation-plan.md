@@ -152,8 +152,26 @@ mappings). **First verify** whether the `node` (jsdom) project gives you a real
 
 ## Step 2 — Draft persists across refresh & is selectable (test-first)
 
-**Files:** `src/App.jsx`, `src/components/PlanManager.jsx` (verification-heavy —
-little new code)
+**Files:** `src/App.jsx`, **new** `src/hooks/usePlanSelection.js`,
+`src/components/PlanManager.jsx` (verification-heavy — little new code)
+
+**Abstraction:** plan-persistence lives in a `usePlanSelection` hook, matching
+the `useDragPlacement` precedent. The hook owns `currentTimeline` and
+`currentPlanId`, derives `timeline`, and returns them plus `handleTimelineChange`,
+`handlePlanChange`, and a `handleAutosave({ partyComp, placements })` handler.
+`App.jsx` keeps `partyComp`/`placements` and passes their setters in.
+
+Autosave is **event-driven, not an effect.** `App.jsx` defines edit-wrapped
+setters — `editPlacements`/`editPartyComp` — that apply the change and then call
+`handleAutosave`; these are the setters handed to every child and hook that edits
+(`useDragPlacement` takes `editPlacements`; `PartyComposition` takes
+`editPartyComp`; `removePlacement`/`clearRow`/`clearAll` call `editPlacements`).
+Loads (`handlePlanChange`) use the **raw** setters and never autosave — so
+selecting a plan or draft can't fork one, with no load guard needed. Steps 3–6
+add more to this hook (the fork, commit/Save-As, the shared confirmation dialog),
+so it earns its home now. Covered by the browser integration tests through
+`<App />` (and `planStorage.test.js` for the storage calls) — same as
+`useDragPlacement`, which has no tests of its own today.
 
 **ACs covered:** "Draft persists through app refresh"; "Plan switching retains
 draft in selector."
@@ -164,21 +182,34 @@ draft in selector."
   option in the selector** and the app boots to "New Plan (Unsaved)" (draft is
   *not* auto-loaded).
 - Selecting the draft from the selector loads its placements.
-- Selecting a different plan and back leaves the draft present in the selector.
+- Switching to a **different** plan while a draft exists **removes the draft**
+  (`getDraft()` is `null` afterward, and it drops out of the selector). This is
+  the unprotected, interim version of design decision #5 — the exact silent-loss
+  gap Step 5's Save / Discard and Continue / Cancel dialog exists to close.
 
-> **Forward note:** Step 5 adds a Save/Discard/Cancel prompt to plan switching.
-> When it lands, this "select a different plan and back" scenario will route
-> through that dialog (e.g. **Cancel** to stay put, or **Discard** to drop the
-> draft), so this test is updated then to drive the dialog. That's an
-> intentional behavior change (a design decision), not a test weakened to force
-> a pass — see `CLAUDE.md` on when tests may change.
+> **Forward note:** Step 5 wraps this same plan-switch path in a Save/Discard/Cancel
+> dialog. When it lands, this test's direct `selectPlan(otherPlanId)` call will
+> instead open that dialog, and only clicking **Discard and Continue** reaches the
+> deletion this test currently exercises directly — **Cancel** keeps the draft, and
+> **Save** commits it instead of deleting it. This test is updated then to drive the
+> dialog and assert on its buttons. That's an intentional behavior change (a design
+> decision), not a test weakened to force a pass — see `CLAUDE.md` on when tests may
+> change.
 
-**Then implement:** likely nothing beyond confirming `getPlansByBoss` surfaces
-the draft and `handlePlanChange` loads it. If the selector filters drafts out,
-stop filtering. **Do not** add mount-restore of the draft.
+**Then implement:**
+- Confirm `getPlansByBoss` surfaces the draft and `handlePlanChange` loads it. If
+  the selector filters drafts out, stop filtering. **Do not** add mount-restore
+  of the draft.
+- In `handlePlanChange(planId)`, call `getDraft()`; if a draft exists and `planId`
+  differs from the draft's own id (including switching to "New Plan (Unsaved)",
+  i.e. `planId` falsy), `deleteDraft()` before loading. Selecting the draft itself
+  must **not** trigger this. This is a deliberately unprotected interim step —
+  Step 5 replaces the direct `deleteDraft()` call with a confirmation dialog whose
+  "Discard and Continue" button is the only path that still calls it.
 
-**Watch out for:** selecting the draft must route through the Step 3 "just
-loaded" guard so it doesn't immediately fork a second draft.
+**Watch out for:** selecting the draft (like any load) goes through
+`handlePlanChange`'s raw setters, not `handleAutosave`, so it can't fork a
+second draft.
 
 **Done when:** the draft round-trips through remount and selection without being
 auto-loaded or duplicated.
@@ -187,7 +218,7 @@ auto-loaded or duplicated.
 
 ## Step 3 — Draft-aware auto-save: the fork (test-first, core change)
 
-**File:** `src/App.jsx` (the auto-save `useEffect`, ~lines 59–70)
+**File:** `src/hooks/usePlanSelection.js` (`handleAutosave`)
 
 **ACs covered:** the heart of "auto-save writes to a draft, never over a
 finalized plan."
@@ -205,25 +236,24 @@ finalized plan."
 Step 5. Here, forking simply replaces any existing draft via `saveDraft`'s
 delete-first, upholding the single-draft invariant mechanically.)*
 
-**Then implement** the new effect behavior on a genuine edit:
+**Then implement** the `handleAutosave` behavior on a genuine edit:
 - Current selection **is the draft** → `saveDraft` in place (same `sourcePlanId`).
 - Current selection is a **saved plan** "Foo" → `saveDraft` with
-  `sourcePlanId = Foo.planId`, `planName = "Foo (draft)"`, then switch
-  `currentPlanId` to the new draft. Leave "Foo" untouched.
-- **Nothing selected** → `saveDraft` with `sourcePlanId: null`, `planName:
-  "New Plan (draft)"`, then select it.
+  `sourcePlanId = Foo.planId` and Foo's name (`saveDraft` appends the " (draft)"
+  suffix), then switch `currentPlanId` to the new draft. Leave "Foo" untouched.
+- **Nothing selected** → `saveDraft` with `sourcePlanId: null` and name
+  "New Plan", then select the new draft.
 
-**The critical pitfall — tell the implementer explicitly.** The effect fires on
-*every* `placements`/`partyComp` change, including the ones from *loading*
-(Step 2 selection, `handlePlanChange`, import). Without a guard, merely selecting
-"Foo" instantly forks "Foo (draft)". Use a ref flag
-(`skipNextAutoSave.current = true`) set right before any programmatic
-load-`setState`, and early-return + clear it in the effect. The guard test above
-is what proves this works.
+**No load guard needed.** `handleAutosave` runs only from the edit-wrapped setters
+(`editPlacements`/`editPartyComp`), never from a load path, so merely selecting
+"Foo" or the draft can't fork — loads go through `handlePlanChange`'s raw setters.
+The guard test above proves this holds. `setCurrentPlanId(newDraftId)` is a plain
+call inside `handleAutosave`, not a `setState` inside an effect, so there is no
+re-trigger or double-write to design around.
 
-**Watch out for:** switching selection to the new draft inside the effect can
-re-trigger it — make sure that doesn't loop or double-write; keep `sourcePlanId`
-stable across subsequent edits.
+**Watch out for:** keep `sourcePlanId` stable across subsequent edits — once the
+selection moves onto the new draft, later edits take the "is the draft →
+`saveDraft` in place" branch rather than re-forking.
 
 **Done when:** editing forks/updates exactly one draft and never mutates a
 finalized plan; loading never forks.
@@ -279,8 +309,8 @@ edit-time eviction warning.
 - **Discard and Continue** → draft removed, the chosen plan loaded.
 - **Save** → commits (or Save-As for a from-scratch draft), then loads the chosen
   plan.
-- **Selecting the draft itself does not prompt** — it loads (via the Step 3
-  just-loaded guard, so no second draft is forked).
+- **Selecting the draft itself does not prompt** — it loads (via
+  `handlePlanChange`'s raw setters, so no second draft is forked).
 - Switching to **"New Plan (Unsaved)"** while a draft exists prompts the same way
   (it, too, abandons the draft).
 
@@ -299,7 +329,7 @@ branch. In `handlePlanChange(newPlanId)`, `getDraft()`:
 the **`clearRow` pattern** (same as Step 6) — defer the actual load to inside the
 confirm handlers; on Cancel you never call the load, so the dropdown snaps back on
 its own. Verify `onChange` doesn't optimistically set state first. Selecting the
-draft option must route through the just-loaded guard so it doesn't re-fork.
+draft option loads via the raw setters (not `handleAutosave`), so it doesn't re-fork.
 
 **Done when:** switching plans prompts only when a draft exists and the target is
 a *different* plan, each button does the right thing, and returning to the draft
@@ -352,7 +382,7 @@ does the right thing.
 selector."
 
 **Write tests first** (browser): the draft option is present, selecting it loads
-it (via the just-loaded guard, so no second draft is forked), and re-selecting it
+it (via the raw setters, so no second draft is forked), and re-selecting it
 round-trips.
 
 **Then implement:** confirm listing already works (it should, via prefix). Optional

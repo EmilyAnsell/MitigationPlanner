@@ -112,7 +112,7 @@ Add the job to `JOBS` in `src/data/jobs.js`. Drop the ability icon PNG into `src
 
 ### Suggested conventions not yet consistently applied
 
-- **Don't pass raw state setters as props** — `TimelineRow` receives `setHoveredAbility` and `setTooltipPosition` directly. Prefer wrapping in a named handler at the call site (`onHoverAbility`) so components don't take implicit ownership of parent state.
+- **Don't pass raw state setters as props** — `TimelineRow` receives `setHoveredAbility` and `setTooltipPosition` directly (existing violation, not yet fixed). Prefer wrapping in a named handler at the call site (`onHoverAbility`, `handlePlanIdChange`) so child components doesn't take implicit ownership of parent state — the state's owner keeps sole responsibility for what a change to it means.
 
 - **Extract magic numbers to named constants** — values like `labelWidth = 128`, the `snapThreshold = 2` in `validDropZones.js`, and the `laneHeight` arithmetic in `TimelineRow` should be named constants alongside `ROW_HEIGHT` and `PIXELS_PER_SECOND` in `bossTimelines.js`.
 

@@ -47,14 +47,14 @@ function resolveDropTime({
  * Manages drag-and-drop state and handlers for placing abilities on the timeline,
  * from both the ability palette and existing timeline placements
  * @param {Array} placements - Current placements on the timeline
- * @param {Function} setPlacements - Setter for the placements array
+ * @param {Function} editPlacements - Applies the next placements array (persists the edit via autosave)
  * @param {number} timelineDuration - Total timeline duration in seconds
  * @param {number} pixelsPerSecond - Current horizontal scale of the timeline
  * @returns {Object} - Drag state (draggedAbility, draggedFrom, dragPreview) and handlers (handleDragStart, handleDragOver, handleDragLeave, handleDropOnRow)
  */
 export function useDragPlacement({
   placements,
-  setPlacements,
+  editPlacements,
   timelineDuration,
   pixelsPerSecond,
   prepullVisibleSeconds,
@@ -112,7 +112,7 @@ export function useDragPlacement({
 
       if (!hasConflict) {
         if (draggedFrom === "palette") {
-          setPlacements([
+          editPlacements([
             ...placements,
             {
               ...draggedAbility,
@@ -121,7 +121,7 @@ export function useDragPlacement({
             },
           ]);
         } else if (draggedFrom === "timeline") {
-          setPlacements(
+          editPlacements(
             placements.map((p) =>
               p.placementId === draggedAbility.placementId
                 ? { ...p, startTime }
@@ -138,7 +138,7 @@ export function useDragPlacement({
       draggedFrom,
       timelineDuration,
       placements,
-      setPlacements,
+      editPlacements,
       getExcludePlacementId,
       minTime,
     ],
