@@ -33,35 +33,23 @@ export function usePlanSelection({ partyComp, setPartyComp, setPlacements }) {
    * @param {Array} placements - The next placements array.
    */
   const handleAutosave = ({ partyComp, placements }) => {
-    // New Plan
-    if (!currentPlanId) {
-      const draftId = saveDraft({
-        bossId: currentTimeline,
-        planName: "New Plan",
-        partyComp,
-        placements,
-        sourcePlanId: null,
-      });
-      setCurrentPlanId(draftId);
-      return;
-    }
-    const planData = loadPlan(currentPlanId);
-    // Saving over draft
-    if (planData?.isDraft) {
+    const currentPlan = currentPlanId ? loadPlan(currentPlanId) : null;
+
+    // Editing the draft in place — overwrite the same key so its id stays stable.
+    if (currentPlan?.isDraft) {
       savePlan(currentPlanId, {
-        ...planData,
+        ...currentPlan,
         partyComp,
         placements,
       });
-    }
-    // Forking to draft from saved plan
-    else {
+    } else {
+      // If not editing a draft, fork a fresh draft — from the saved plan, or from scratch.
       const draftId = saveDraft({
-        bossId: planData.bossId,
-        planName: planData.planName,
+        bossId: currentPlan?.bossId ?? currentTimeline,
+        planName: currentPlan?.planName ?? "New Plan",
         partyComp,
         placements,
-        sourcePlanId: currentPlanId,
+        sourcePlanId: currentPlanId ?? null,
       });
       setCurrentPlanId(draftId);
     }
