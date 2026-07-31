@@ -2,9 +2,10 @@ import { useState } from "react";
 import { BOSS_TIMELINES } from "../data/bossTimelines";
 import {
   loadPlan,
-  savePlan,
   getDraft,
   deleteDraft,
+  saveDraft,
+  savePlan,
 } from "../utils/planStorage";
 
 /**
@@ -32,10 +33,37 @@ export function usePlanSelection({ partyComp, setPartyComp, setPlacements }) {
    * @param {Array} placements - The next placements array.
    */
   const handleAutosave = ({ partyComp, placements }) => {
-    if (!currentPlanId) return;
+    // New Plan
+    if (!currentPlanId) {
+      const draftId = saveDraft({
+        bossId: currentTimeline,
+        planName: "New Plan",
+        partyComp,
+        placements,
+        sourcePlanId: null,
+      });
+      setCurrentPlanId(draftId);
+      return;
+    }
     const planData = loadPlan(currentPlanId);
-    if (planData) {
-      savePlan(currentPlanId, { ...planData, partyComp, placements });
+    // Saving over draft
+    if (planData?.isDraft) {
+      savePlan(currentPlanId, {
+        ...planData,
+        partyComp,
+        placements,
+      });
+    }
+    // Forking to draft from saved plan
+    else {
+      const draftId = saveDraft({
+        bossId: planData.bossId,
+        planName: planData.planName,
+        partyComp,
+        placements,
+        sourcePlanId: currentPlanId,
+      });
+      setCurrentPlanId(draftId);
     }
   };
 
