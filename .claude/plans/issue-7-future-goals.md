@@ -73,3 +73,15 @@ contained.
 **Best sequenced after Steps 5–6:** those add the plan-switch / boss-switch
 dialogs, which also touch selection transitions and would set the same meta, so
 doing this once they land avoids reworking the mirror twice.
+
+## 7. Handle Save As name collisions
+
+Today, Save As always calls `generatePlanId`, which appends `Date.now()` — so
+saving with a name that matches an existing plan silently creates a **second**
+plan with the same `planName` rather than replacing the original. Not part of
+issue #7's scope (the implementation plan's Step 4 mistakenly implied this was
+covered; it isn't — no collision handling exists yet).
+
+**Fix, when picked up:** on Save As submit, look up whether a plan with that
+name (for the current boss) already exists; if so, either reuse its id (true
+replace) or warn the user before overwriting.

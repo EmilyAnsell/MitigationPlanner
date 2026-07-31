@@ -132,6 +132,7 @@ export function commitDraft(draft) {
     partyComp: draft.partyComp,
     placements: draft.placements,
     isDraft: false,
+    sourcePlanId: null,
   });
   deleteDraft();
 }

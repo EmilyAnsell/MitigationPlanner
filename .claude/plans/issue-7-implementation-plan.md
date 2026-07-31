@@ -93,9 +93,17 @@ draft would otherwise be silently dropped.
    *leaving* the plan — not on the first edit of the newly-loaded plan (which is
    a surprising point, since the user has already moved on and the modal wouldn't
    even be saving what's currently on screen). **Selecting the draft itself does
-   not prompt** (you're returning to it, not abandoning it). **Importing leaves
-   the draft alone** — the draft is safe in storage even though import replaces
-   the on-screen placements; no prompt.
+   not prompt** (you're returning to it, not abandoning it). **Importing prompts
+   too** — `handleFileSelect` saves the imported plan and then calls
+   `onPlanChange(newPlanId)`, which is an ordinary plan switch and therefore
+   abandons the draft exactly like any other. The prompt is raised on the
+   **Import button click, before the OS file picker opens**, not after a file has
+   been chosen: the user shouldn't have to resolve an unrelated draft decision
+   inside what they think is a modal about their file, and the switch shouldn't
+   destroy the draft without warning. **Trade-off:** the app can't tell when the
+   OS picker is dismissed, so **Discard and Continue** followed by cancelling the
+   picker still loses the draft. Accepted — **Save** is the non-destructive
+   choice, and prompting after file selection is worse.
 6. **No edit-time eviction warning.** Because a draft is always resolved when you
    switch away from its plan (decision #5) or its boss (Step 6), you can never be
    editing plan B while a plan-A draft lingers — so the cross-plan eviction case
@@ -283,7 +291,9 @@ save-as replaces existing plan"; "No drafts remain after save-as"; commit path.
   today's behavior.
 - `openSaveAsDialog`: after `savePlan(newPlanId, …)`, `deleteDraft()` and select
   the new plan. Keep the existing `SaveAsBody` name-validation / Enter-to-submit.
-- **Import (`handleFileSelect`)**: unchanged — importing **leaves** the draft.
+- **Import (`handleImport` / `handleFileSelect`)**: unchanged **in this step** —
+  import's draft prompt is Step 5's job (it reuses the same shared helper). Note
+  that until then, importing silently drops the draft via `onPlanChange`.
 
 **Done when:** both commit paths prune the draft and select the right plan.
 
@@ -291,14 +301,15 @@ save-as replaces existing plan"; "No drafts remain after save-as"; commit path.
 
 ## Step 5 — Plan-switch confirmation dialog (test-first)
 
-**Files:** `src/App.jsx` (`handlePlanChange`) + plan `<select>` in
-`src/components/PlanManager.jsx` + a **shared unsaved-draft confirmation helper**
-(reused by Step 6).
+**Files:** `src/App.jsx` (`handlePlanChange`) + plan `<select>` and
+`handleImport` in `src/components/PlanManager.jsx` + a **shared unsaved-draft
+confirmation helper** (reused by the Import button here, and by Step 6).
 
 **ACs covered:** "Plan switch dialog prompts appropriately"; "Dialog actions
 execute corresponding operations"; protects "maximum one draft" by resolving the
-draft when the user *leaves* the plan (design decision #5). Replaces the former
-edit-time eviction warning.
+draft when the user *leaves* the plan (design decision #5) — whether they leave
+via the selector or via **Import**. Replaces the former edit-time eviction
+warning.
 
 **Write tests first** (browser):
 - With **no draft**, switching to another plan loads it immediately (no dialog).
@@ -314,10 +325,29 @@ edit-time eviction warning.
 - Switching to **"New Plan (Unsaved)"** while a draft exists prompts the same way
   (it, too, abandons the draft).
 
+**Import tests** (browser; same dialog, raised earlier in the flow):
+- With **no draft**, clicking **Import** opens the file picker immediately (no
+  dialog).
+- With a draft, clicking **Import** opens the **Save / Discard and Continue /
+  Cancel** dialog and the file picker **has not opened yet**. Assert the ordering
+  — the point of this step is that nothing is chosen before the draft is
+  resolved. The hidden `<input type="file">` is driven by
+  `fileInputRef.current.click()`, so spy on it (e.g.
+  `vi.spyOn(HTMLInputElement.prototype, "click")`) and assert it is **not called**
+  while the dialog is open. That's an observation seam, not a code change.
+- **Cancel** → picker never opens, draft intact, selection unchanged.
+- **Discard and Continue** → draft removed, *then* the picker opens (spy called
+  once).
+- **Save** → commits (or Save-As for a from-scratch draft), and the picker opens
+  only **after** that flow completes — not while the Save-As name dialog is still
+  up.
+- Once a file is selected, `handleFileSelect` runs against a draft-free state, so
+  its `onPlanChange(newPlanId)` **must not raise a second dialog**.
+
 **Then implement:** factor a shared helper (e.g. `confirmDiscardDraft({ onSave,
-onDiscard })` or an inline `openDialog` config builder) that both this step and
-Step 6 use — one place that knows the three buttons and the commit-vs-Save-As
-branch. In `handlePlanChange(newPlanId)`, `getDraft()`:
+onDiscard })` or an inline `openDialog` config builder) that this step (both the
+selector and Import), and Step 6, use — one place that knows the three buttons
+and the commit-vs-Save-As branch. In `handlePlanChange(newPlanId)`, `getDraft()`:
 - No draft, **or** the target *is* the draft → switch/load as today.
 - Draft exists and target differs → `openDialog` with three buttons:
   1. **Save** — Save flow (commit for a sourced draft, Save-As for from-scratch),
@@ -325,15 +355,32 @@ branch. In `handlePlanChange(newPlanId)`, `getDraft()`:
   2. **Discard and Continue** (`variant: "danger"`) — `deleteDraft()`, then load.
   3. **Cancel** (`variant: "secondary"`) — do nothing.
 
+And in `handleImport()` (PlanManager), `getDraft()` before touching the file
+input — same `clearRow` deferral, with `fileInputRef.current?.click()` as the
+deferred action instead of a load:
+- No draft → click the input as today.
+- Draft exists → the shared helper's three buttons, where **Save** and **Discard
+  and Continue** each end by opening the picker and **Cancel** leaves it closed.
+`handleFileSelect` itself stays as-is: by the time it runs the draft is already
+resolved, so its `onPlanChange` takes the no-draft path and can't double-prompt.
+
 **Watch out for:** the plan `<select>` is controlled by `currentPlanId`. Follow
 the **`clearRow` pattern** (same as Step 6) — defer the actual load to inside the
 confirm handlers; on Cancel you never call the load, so the dropdown snaps back on
 its own. Verify `onChange` doesn't optimistically set state first. Selecting the
 draft option loads via the raw setters (not `handleAutosave`), so it doesn't re-fork.
 
+For Import, the **Save** branch can be asynchronous — a from-scratch draft routes
+to the Save-As name dialog, so `fileInputRef.current.click()` must be chained onto
+that dialog's completion, not fired alongside it (two stacked modals, or a picker
+opening over the name prompt, is the failure mode to avoid). Also accept the known
+gap from decision #5: a dismissed OS picker after **Discard** still loses the
+draft — the app gets no event for it. Don't try to detect it.
+
 **Done when:** switching plans prompts only when a draft exists and the target is
-a *different* plan, each button does the right thing, and returning to the draft
-stays silent.
+a *different* plan, each button does the right thing, returning to the draft stays
+silent, and **Import raises the same prompt before the file picker opens** (and
+never twice).
 
 ---
 
@@ -407,6 +454,8 @@ Run `npm run test:run` (all green) and walk the issue's ACs manually in
 - [ ] Boss change dialog prompts appropriately (only when a draft exists)
 - [ ] Plan switch dialog prompts appropriately (only when a draft exists and the
       target differs from the draft); returning to the draft stays silent
+- [ ] Import prompts the same way, **before** the file picker opens, and does not
+      prompt a second time once a file is chosen
 - [ ] Dialog actions (Save / Discard and Continue / Cancel) each execute correctly
 - [ ] No drafts remain after Discard or Save-As
 

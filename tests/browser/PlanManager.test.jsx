@@ -6,6 +6,9 @@ import {
   loadPlan,
   savePlan,
   generatePlanId,
+  getPlansByBoss,
+  saveDraft,
+  getDraft,
 } from "../../src/utils/planStorage";
 import { closeDialog } from "../../src/utils/dialogStore";
 
@@ -216,6 +219,139 @@ describe("PlanManager Delete flow", () => {
 
     await expect.element(page.getByRole("dialog")).not.toBeInTheDocument();
     expect(loadPlan(planId)).not.toBe(null);
+    expect(onPlanChange).not.toHaveBeenCalled();
+  });
+});
+
+describe("PlanManager Save/Save As with an active draft", () => {
+  afterEach(() => {
+    cleanup();
+    closeDialog();
+    localStorage.clear();
+  });
+
+  test("Save on a sourced draft commits it onto the source plan, selects the source plan, and leaves no draft", async () => {
+    savePlan("foo-id", {
+      bossId: "test-boss",
+      planName: "Foo",
+      partyComp: { tank1: "PLD" },
+      placements: [],
+    });
+    const draftPartyComp = { tank1: "WAR" };
+    const draftPlacements = [{ id: "rampart", startTime: 5 }];
+    const draftId = saveDraft({
+      bossId: "test-boss",
+      planName: "Foo",
+      partyComp: draftPartyComp,
+      placements: draftPlacements,
+      sourcePlanId: "foo-id",
+    });
+
+    const { onPlanChange } = renderPlanManager({
+      currentPlanId: draftId,
+      partyComp: draftPartyComp,
+      placements: draftPlacements,
+    });
+
+    fireEvent.click(page.getByTitle("Save", { exact: true }).element());
+
+    expect(loadPlan("foo-id")).toMatchObject({
+      planName: "Foo",
+      partyComp: draftPartyComp,
+      placements: draftPlacements,
+      isDraft: false,
+    });
+    expect(getDraft()).toBe(null);
+    expect(onPlanChange).toHaveBeenCalledWith("foo-id");
+  });
+
+  test("Save on a from-scratch draft opens the Save As dialog instead of saving directly", async () => {
+    const draftId = saveDraft({
+      bossId: "test-boss",
+      planName: "New Plan",
+      partyComp: {},
+      placements: [],
+      sourcePlanId: null,
+    });
+
+    const { onPlanChange } = renderPlanManager({ currentPlanId: draftId });
+
+    fireEvent.click(page.getByTitle("Save", { exact: true }).element());
+
+    await expect.element(page.getByText("Save Plan As")).toBeInTheDocument();
+    expect(onPlanChange).not.toHaveBeenCalled();
+    // Nothing has been committed yet - the draft is still waiting on a name.
+    expect(getDraft()).not.toBe(null);
+  });
+
+  test("Save As with a new name creates a new plan, leaves no draft, and selects the new plan", async () => {
+    saveDraft({
+      bossId: "test-boss",
+      planName: "Foo",
+      partyComp: {},
+      placements: [],
+      sourcePlanId: "foo-id",
+    });
+
+    const { onPlanChange } = renderPlanManager();
+    fireEvent.click(page.getByTitle("Save As").element());
+
+    const input = page.getByPlaceholder("Enter plan name...").element();
+    fireEvent.change(input, { target: { value: "Brand New Plan" } });
+    fireEvent.click(
+      page.getByRole("dialog").getByRole("button", { name: "Save" }).element(),
+    );
+
+    expect(getDraft()).toBe(null);
+    expect(onPlanChange).toHaveBeenCalledTimes(1);
+    const newPlanId = onPlanChange.mock.calls[0][0];
+    expect(loadPlan(newPlanId).planName).toBe("Brand New Plan");
+  });
+});
+
+describe("PlanManager Save on a plain saved plan", () => {
+  afterEach(() => {
+    cleanup();
+    closeDialog();
+    localStorage.clear();
+  });
+
+  /* A saved plan with no draft in play. Any edit would have forked a draft, so
+  the on-screen state matches what is already stored - Save is an effective
+  no-op re-save (locked design decision #8), not a commit. */
+  test("Save re-saves in place, keeps the plan's name and boss, and does not prompt for a name", async () => {
+    const partyComp = { tank1: "PLD" };
+    const placements = [{ id: "rampart", startTime: 5 }];
+    const planId = generatePlanId("test-boss", "My Plan");
+    savePlan(planId, {
+      bossId: "test-boss",
+      planName: "My Plan",
+      partyComp,
+      placements,
+    });
+
+    const { onPlanChange } = renderPlanManager({
+      currentPlanId: planId,
+      partyComp,
+      placements,
+    });
+
+    fireEvent.click(page.getByTitle("Save", { exact: true }).element());
+
+    await expect.element(page.getByText("Plan saved!")).toBeInTheDocument();
+    await expect
+      .element(page.getByText("Save Plan As"))
+      .not.toBeInTheDocument();
+
+    expect(loadPlan(planId)).toMatchObject({
+      bossId: "test-boss",
+      planName: "My Plan",
+      partyComp,
+      placements,
+    });
+    // Re-saved onto the same key rather than spawning a second plan or a draft.
+    expect(getPlansByBoss("test-boss")).toHaveLength(1);
+    expect(getDraft()).toBe(null);
     expect(onPlanChange).not.toHaveBeenCalled();
   });
 });

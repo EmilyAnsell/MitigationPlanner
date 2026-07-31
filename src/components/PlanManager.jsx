@@ -3,10 +3,13 @@ import { Save, Download, Upload, Trash2, Plus } from "lucide-react";
 import {
   getPlansByBoss,
   savePlan,
+  loadPlan,
   deletePlan,
   generatePlanId,
   exportPlan,
   importPlan,
+  commitDraft,
+  deleteDraft,
 } from "../utils/planStorage";
 import { closeDialog, openDialog } from "../utils/dialogStore";
 
@@ -20,21 +23,26 @@ export default function PlanManager({
   const fileInputRef = useRef(null);
 
   const plansForBoss = getPlansByBoss(currentTimeline);
-  const currentPlan = plansForBoss.find((p) => p.planId === currentPlanId);
+  const currentPlan = currentPlanId ? loadPlan(currentPlanId) : null;
+  const currentSourceId = currentPlan?.sourcePlanId;
 
   const handleSave = () => {
-    if (!currentPlanId) {
-      // No plan selected, prompt for name
+    // New plan or new draft
+    if (!currentPlanId || (currentPlan?.isDraft && !currentSourceId)) {
       openSaveAsDialog();
       return;
     }
 
-    savePlan(currentPlanId, {
-      bossId: currentTimeline,
-      planName: currentPlan?.planName || "Untitled Plan",
-      partyComp,
-      placements,
-    });
+    if (currentPlan?.isDraft) {
+      commitDraft(currentPlan);
+      onPlanChange(currentSourceId);
+    } else {
+      savePlan(currentPlanId, {
+        ...currentPlan,
+        partyComp,
+        placements,
+      });
+    }
 
     openDialog({ body: "Plan saved!" });
   };
@@ -58,6 +66,7 @@ export default function PlanManager({
         placements,
       });
 
+      deleteDraft();
       onPlanChange(newPlanId);
       openDialog({ body: "Plan saved as new!" });
     };
