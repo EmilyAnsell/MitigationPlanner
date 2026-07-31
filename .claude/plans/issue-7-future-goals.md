@@ -39,3 +39,37 @@ reflects state accurately.
 Optional: distinguish the `(draft)` option in the Plan Selector (italic, a
 leading symbol, or a divider) so it reads as provisional rather than a peer of
 finalized plans.
+
+## 6. Mirror the current selection's metadata in hook state (perf / cleanup)
+
+`usePlanSelection.handleAutosave` calls `loadPlan(currentPlanId)` on **every
+edit**, purely to answer "is the current selection a draft, and what are its
+`bossId`/`planName`/`sourcePlanId`?" — a `localStorage.getItem` + `JSON.parse`
+in the hot path.
+
+**Fix:** keep that answer in React. Give the hook a companion state to
+`currentPlanId` holding the current selection's metadata (`isDraft`, `bossId`,
+`planName`, `sourcePlanId`), and set it wherever the selection changes rather
+than re-reading storage to reconstruct it:
+
+- `handlePlanChange` already calls `loadPlan(planId)` — populate the meta there
+  for free (and `null` it on the "New Plan (Unsaved)" / falsy-`planId` path).
+- The fork branch of `handleAutosave` sets it to the new draft's meta;
+  `handleTimelineChange` nulls it.
+
+Then `handleAutosave` reads meta from state instead of storage, and storage
+becomes **write-through only** in the edit path — no read, no parse per edit.
+All selection mutations already funnel through this hook, so the mirror stays
+contained.
+
+**Keep in mind:**
+- The `savePlan` **write** (`JSON.stringify` of the whole plan) is the larger
+  cost and stays. Fine today because autosave fires per *committed* edit (drop,
+  not per drag-pixel); if edits ever get chattier, debouncing the write is the
+  next lever.
+- One storage read genuinely stays: the orphan-draft check `getDraft()` in
+  `handlePlanChange` is about storage, not the current selection — leave it.
+
+**Best sequenced after Steps 5–6:** those add the plan-switch / boss-switch
+dialogs, which also touch selection transitions and would set the same meta, so
+doing this once they land avoids reworking the mirror twice.
