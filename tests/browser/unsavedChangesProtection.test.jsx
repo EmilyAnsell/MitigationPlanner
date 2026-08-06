@@ -166,7 +166,7 @@ describe("draft persistence and selection", () => {
   });
 });
 
-// Step 3: handleAutosave forks a draft on a genuine edit instead of overwriting
+// handleAutosave forks a draft on a genuine edit instead of overwriting
 // a finalized plan. Unlike the describe block above (which seeds drafts directly
 // via saveDraft to test round-tripping), these tests drive a real edit through
 // the UI so the fork itself - the behavior handleAutosave is responsible for -
@@ -312,12 +312,13 @@ describe("draft-aware auto-save (the fork)", () => {
   });
 });
 
-/* Step 4: what the Save button itself does. Driven through <App /> because the
+/* What the Save button itself does. Driven through <App /> because the
 branching lives in usePlanSelection.handleSave - PlanManager only forwards the
 click. These cases were previously in PlanManager.test.jsx, but once handleSave
 moved out, the only way to keep them there was to stand up a stub of it, which
-could assert nothing but the stub. The Step 5 tests below reach handleSave too,
-but only via the confirm dialog's Save - never via the button itself. */
+could assert nothing but the stub. The plan-switch confirmation dialog tests
+below reach handleSave too, but only via the confirm dialog's Save - never via
+the button itself. */
 describe("the Save button", () => {
   afterEach(() => {
     cleanup();
@@ -399,7 +400,7 @@ describe("the Save button", () => {
   });
 });
 
-/* Step 5: leaving a plan while a draft exists is confirmed rather than silent.
+/* Leaving a plan while a draft exists is confirmed rather than silent.
 The dialog is raised inside usePlanSelection.handlePlanChange - PlanManager's
 <select> only reports the new selection - so it is driven here through <App />,
 where the deferred load, the draft in storage, and the <select>'s own value are
@@ -548,12 +549,12 @@ describe("plan-switch confirmation dialog", () => {
   });
 });
 
-/* Step 5, second half: Import abandons the draft exactly like any other plan
-switch, so it raises the same dialog - but on the button, *before* the OS file
-picker opens, since the app gets no event when a picker is dismissed. The picker
-is opened by fileInputRef.current.click(), so a spy on HTMLInputElement.prototype
-is both the only way to observe when it opens and the only way to keep a real
-native dialog from opening mid-test. */
+/* Import abandons the draft exactly like any other plan switch, so it raises
+the same dialog - but on the button, *before* the OS file picker opens, since
+the app gets no event when a picker is dismissed. The picker is opened by
+fileInputRef.current.click(), so a spy on HTMLInputElement.prototype is both
+the only way to observe when it opens and the only way to keep a real native
+dialog from opening mid-test. */
 describe("import confirmation dialog", () => {
   let openPicker;
 
@@ -718,15 +719,12 @@ describe("import confirmation dialog", () => {
   });
 });
 
-/* Step 6: leaving a draft by switching boss is confirmed the same way as
-switching plans (Step 5) - handleTimelineChange is expected to reuse
-confirmDiscardDraft, so this shares the exact three buttons and Save/Save-As
-branching. Boss switching always clears placements and currentPlanId (a boss's
-placements don't carry over to another boss), so "switched" here means the
-boss select's value changed and the screen is back to an empty New Plan
-(Unsaved). Not yet implemented - handleTimelineChange currently switches
-unconditionally, so every test below except the "no draft" case is expected
-to fail until Step 6 lands. */
+/* Leaving a draft by switching boss is confirmed the same way as switching
+plans - handleTimelineChange reuses confirmDiscardDraft, so this shares the
+exact three buttons and Save/Save-As branching. Boss switching always clears
+placements and currentPlanId (a boss's placements don't carry over to another
+boss), so "switched" here means the boss select's value changed and the
+screen is back to an empty New Plan (Unsaved). */
 describe("boss-switch confirmation dialog", () => {
   afterEach(() => {
     cleanup();
