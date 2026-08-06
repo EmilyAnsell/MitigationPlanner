@@ -9,6 +9,7 @@ import {
   generatePlanId,
   getDraft,
   getAllPlans,
+  getPlansByBoss,
   loadPlan,
 } from "../../src/utils/planStorage";
 import { closeDialog } from "../../src/utils/dialogStore";
@@ -308,6 +309,93 @@ describe("draft-aware auto-save (the fork)", () => {
     await expect.poll(() => planSelect.value).toBe(barId);
 
     expect(getDraft()).toBe(null);
+  });
+});
+
+/* Step 4: what the Save button itself does. Driven through <App /> because the
+branching lives in usePlanSelection.handleSave - PlanManager only forwards the
+click. These cases were previously in PlanManager.test.jsx, but once handleSave
+moved out, the only way to keep them there was to stand up a stub of it, which
+could assert nothing but the stub. The Step 5 tests below reach handleSave too,
+but only via the confirm dialog's Save - never via the button itself. */
+describe("the Save button", () => {
+  afterEach(() => {
+    cleanup();
+    closeDialog();
+    localStorage.clear();
+  });
+
+  function clickSave() {
+    fireEvent.click(page.getByTitle("Save", { exact: true }).element());
+  }
+
+  test("on a plain saved plan, re-saves in place and does not prompt for a name", async () => {
+    const placements = [pldPlacement("rampart")];
+    const fooId = seedPlan("Foo", placements);
+
+    render(<App />);
+    selectPlan(fooId);
+    await expect.poll(() => getPlanSelect().value).toBe(fooId);
+
+    clickSave();
+
+    await expect.element(page.getByText("Plan saved!")).toBeInTheDocument();
+    await expect.element(page.getByText("Save Plan As")).not.toBeInTheDocument();
+    expect(loadPlan(fooId)).toMatchObject({
+      bossId: "dancing-green",
+      planName: "Foo",
+      placements,
+    });
+    /* No edit was made, so the on-screen state already matches storage - Save is
+    an effective no-op re-save onto the same key (locked design decision #8), not
+    a commit, and it must not spawn a second plan or a draft. */
+    expect(getPlansByBoss("dancing-green")).toHaveLength(1);
+    expect(getDraft()).toBe(null);
+    // Saving is not also a navigation - Foo stays loaded and on screen rather
+    // than dropping back to "New Plan (Unsaved)".
+    await expect.poll(() => getPlanSelect().value).toBe(fooId);
+    await expect.element(page.getByAltText("Rampart")).toBeInTheDocument();
+  });
+
+  test("on a sourced draft, commits onto the source plan and selects it, leaving no draft", async () => {
+    const fooId = seedPlan("Foo");
+    const draftPlacements = [pldPlacement("rampart")];
+    await renderOnDraft(draftPlacements, {
+      planName: "Foo",
+      sourcePlanId: fooId,
+    });
+
+    clickSave();
+
+    await expect.poll(() => getPlanSelect().value).toBe(fooId);
+    expect(getDraft()).toBe(null);
+    expect(loadPlan(fooId)).toMatchObject({
+      planName: "Foo",
+      placements: draftPlacements,
+      isDraft: false,
+    });
+    await expect.element(page.getByText("Foo (draft)")).not.toBeInTheDocument();
+  });
+
+  test("on a from-scratch draft, routes through Save As and saves the draft's content under the new name", async () => {
+    await renderOnDraft([pldPlacement("rampart")]);
+
+    clickSave();
+
+    await expect.element(page.getByText("Save Plan As")).toBeInTheDocument();
+    // Nothing is committed while the name is still outstanding.
+    expect(getDraft()).not.toBe(null);
+
+    const input = page.getByPlaceholder("Enter plan name...").element();
+    fireEvent.change(input, { target: { value: "Named Plan" } });
+    fireEvent.click(dialogButton("Save").element());
+
+    expect(getDraft()).toBe(null);
+    const newPlanId = findPlanIdByName("Named Plan");
+    expect(loadPlan(newPlanId)).toMatchObject({
+      placements: [pldPlacement("rampart")],
+    });
+    await expect.poll(() => getPlanSelect().value).toBe(newPlanId);
   });
 });
 

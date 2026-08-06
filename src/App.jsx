@@ -58,7 +58,8 @@ export default function MitigationPlanner() {
     handleTimelineChange,
     handlePlanChange,
     handleAutosave,
-  } = usePlanSelection({ partyComp, setPartyComp, setPlacements });
+    handleSave,
+  } = usePlanSelection({ partyComp, setPartyComp, placements, setPlacements });
 
   const {
     draggedAbility,
@@ -156,6 +157,7 @@ export default function MitigationPlanner() {
           availableTimelines={BOSS_TIMELINES}
           currentPlanId={currentPlanId}
           onPlanChange={handlePlanChange}
+          onSave={handleSave}
           partyComp={partyComp}
           placements={placements}
         />

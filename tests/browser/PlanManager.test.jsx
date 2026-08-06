@@ -6,7 +6,6 @@ import {
   loadPlan,
   savePlan,
   generatePlanId,
-  getPlansByBoss,
   saveDraft,
   getDraft,
 } from "../../src/utils/planStorage";
@@ -15,14 +14,23 @@ import { closeDialog } from "../../src/utils/dialogStore";
 // GlobalDialog is rendered alongside PlanManager because openDialog/closeDialog
 // write to a store outside React - PlanManager triggers dialogs, but GlobalDialog
 // is what actually renders them, same as in the real App tree.
+//
+// onSave is a bare spy. Save's branching moved to usePlanSelection.handleSave,
+// so the only thing PlanManager still owns is the wiring, and that is all this
+// file can honestly assert. Standing up a stand-in handleSave here would mean
+// re-asserting the stand-in; the real branches are driven through <App /> in
+// unsavedChangesProtection.test.jsx ("the Save button").
 function renderPlanManager(props = {}) {
   const onPlanChange = vi.fn();
+  const onSave = vi.fn();
+
   render(
     <>
       <PlanManager
         currentTimeline="test-boss"
         currentPlanId={null}
         onPlanChange={onPlanChange}
+        onSave={onSave}
         partyComp={{}}
         placements={[]}
         {...props}
@@ -30,7 +38,7 @@ function renderPlanManager(props = {}) {
       <GlobalDialog />
     </>,
   );
-  return { onPlanChange };
+  return { onPlanChange, onSave };
 }
 
 describe("PlanManager Save As flow", () => {
@@ -151,15 +159,6 @@ describe("PlanManager Save As flow", () => {
     await expect.element(page.getByRole("dialog")).not.toBeInTheDocument();
     expect(onPlanChange).not.toHaveBeenCalled();
   });
-
-  test("clicking Save with no current plan falls back to the Save As dialog", async () => {
-    const { onPlanChange } = renderPlanManager({ currentPlanId: null });
-
-    fireEvent.click(page.getByTitle("Save", { exact: true }).element());
-
-    await expect.element(page.getByText("Save Plan As")).toBeInTheDocument();
-    expect(onPlanChange).not.toHaveBeenCalled();
-  });
 });
 
 describe("PlanManager Delete flow", () => {
@@ -230,58 +229,25 @@ describe("PlanManager Save/Save As with an active draft", () => {
     localStorage.clear();
   });
 
-  test("Save on a sourced draft commits it onto the source plan, selects the source plan, and leaves no draft", async () => {
-    savePlan("foo-id", {
-      bossId: "test-boss",
-      planName: "Foo",
-      partyComp: { tank1: "PLD" },
-      placements: [],
-    });
-    const draftPartyComp = { tank1: "WAR" };
-    const draftPlacements = [{ id: "rampart", startTime: 5 }];
+  /* Committing a draft onto its source, or falling through to Save As for a
+  from-scratch draft, is usePlanSelection's handleSave logic now - see
+  unsavedChangesProtection.test.jsx. Here we only need to know PlanManager hands
+  Save straight to the prop even with a draft active, rather than branching on
+  the draft itself the way it used to. */
+  test("clicking Save calls the onSave prop", async () => {
     const draftId = saveDraft({
       bossId: "test-boss",
       planName: "Foo",
-      partyComp: draftPartyComp,
-      placements: draftPlacements,
+      partyComp: {},
+      placements: [],
       sourcePlanId: "foo-id",
     });
 
-    const { onPlanChange } = renderPlanManager({
-      currentPlanId: draftId,
-      partyComp: draftPartyComp,
-      placements: draftPlacements,
-    });
-
+    const { onSave } = renderPlanManager({ currentPlanId: draftId });
     fireEvent.click(page.getByTitle("Save", { exact: true }).element());
 
-    expect(loadPlan("foo-id")).toMatchObject({
-      planName: "Foo",
-      partyComp: draftPartyComp,
-      placements: draftPlacements,
-      isDraft: false,
-    });
-    expect(getDraft()).toBe(null);
-    expect(onPlanChange).toHaveBeenCalledWith("foo-id");
-  });
-
-  test("Save on a from-scratch draft opens the Save As dialog instead of saving directly", async () => {
-    const draftId = saveDraft({
-      bossId: "test-boss",
-      planName: "New Plan",
-      partyComp: {},
-      placements: [],
-      sourcePlanId: null,
-    });
-
-    const { onPlanChange } = renderPlanManager({ currentPlanId: draftId });
-
-    fireEvent.click(page.getByTitle("Save", { exact: true }).element());
-
-    await expect.element(page.getByText("Save Plan As")).toBeInTheDocument();
-    expect(onPlanChange).not.toHaveBeenCalled();
-    // Nothing has been committed yet - the draft is still waiting on a name.
-    expect(getDraft()).not.toBe(null);
+    expect(onSave).toHaveBeenCalledTimes(1);
+    await expect.element(page.getByRole("dialog")).not.toBeInTheDocument();
   });
 
   test("Save As with a new name creates a new plan, leaves no draft, and selects the new plan", async () => {
@@ -306,52 +272,5 @@ describe("PlanManager Save/Save As with an active draft", () => {
     expect(onPlanChange).toHaveBeenCalledTimes(1);
     const newPlanId = onPlanChange.mock.calls[0][0];
     expect(loadPlan(newPlanId).planName).toBe("Brand New Plan");
-  });
-});
-
-describe("PlanManager Save on a plain saved plan", () => {
-  afterEach(() => {
-    cleanup();
-    closeDialog();
-    localStorage.clear();
-  });
-
-  /* A saved plan with no draft in play. Any edit would have forked a draft, so
-  the on-screen state matches what is already stored - Save is an effective
-  no-op re-save (locked design decision #8), not a commit. */
-  test("Save re-saves in place, keeps the plan's name and boss, and does not prompt for a name", async () => {
-    const partyComp = { tank1: "PLD" };
-    const placements = [{ id: "rampart", startTime: 5 }];
-    const planId = generatePlanId("test-boss", "My Plan");
-    savePlan(planId, {
-      bossId: "test-boss",
-      planName: "My Plan",
-      partyComp,
-      placements,
-    });
-
-    const { onPlanChange } = renderPlanManager({
-      currentPlanId: planId,
-      partyComp,
-      placements,
-    });
-
-    fireEvent.click(page.getByTitle("Save", { exact: true }).element());
-
-    await expect.element(page.getByText("Plan saved!")).toBeInTheDocument();
-    await expect
-      .element(page.getByText("Save Plan As"))
-      .not.toBeInTheDocument();
-
-    expect(loadPlan(planId)).toMatchObject({
-      bossId: "test-boss",
-      planName: "My Plan",
-      partyComp,
-      placements,
-    });
-    // Re-saved onto the same key rather than spawning a second plan or a draft.
-    expect(getPlansByBoss("test-boss")).toHaveLength(1);
-    expect(getDraft()).toBe(null);
-    expect(onPlanChange).not.toHaveBeenCalled();
   });
 });

@@ -1,7 +1,7 @@
 import { useEffect, useRef } from "react";
-import DialogHeader from "./DialogHeader";
-import DialogBody from "./DialogBody";
-import DialogFooter from "./DialogFooter";
+import DialogHeader from "./base_components/DialogHeader";
+import DialogBody from "./base_components/DialogBody";
+import DialogFooter from "./base_components/DialogFooter";
 
 // Standard focusable-element selector, scoped to what the dialog subtree can contain.
 const FOCUSABLE_SELECTOR =

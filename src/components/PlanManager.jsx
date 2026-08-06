@@ -1,23 +1,25 @@
-import { useImperativeHandle, useRef, useState } from "react";
+import { useRef } from "react";
 import { Save, Download, Upload, Trash2, Plus } from "lucide-react";
 import {
   getPlansByBoss,
-  savePlan,
   loadPlan,
   deletePlan,
   generatePlanId,
+  savePlan,
   exportPlan,
   importPlan,
   getDraft,
-  commitDraft,
   deleteDraft,
 } from "../utils/planStorage";
 import { closeDialog, openDialog } from "../utils/dialogStore";
+import { confirmDiscardDraft } from "../utils/confirmDiscardDraft";
+import { openSaveAsDialog } from "../utils/openSaveAsDialog";
 
 export default function PlanManager({
   currentTimeline,
   currentPlanId,
   onPlanChange,
+  onSave,
   partyComp,
   placements,
 }) {
@@ -25,72 +27,6 @@ export default function PlanManager({
 
   const plansForBoss = getPlansByBoss(currentTimeline);
   const currentPlan = currentPlanId ? loadPlan(currentPlanId) : null;
-  const currentSourceId = currentPlan?.sourcePlanId;
-
-  const handleSave = (onSaved = () => {}) => {
-    // New plan or new draft
-    if (!currentPlanId || (currentPlan?.isDraft && !currentSourceId)) {
-      openSaveAsDialog(onSaved);
-      return;
-    }
-
-    if (currentPlan?.isDraft) {
-      commitDraft(currentPlan);
-      onPlanChange(currentSourceId);
-    } else {
-      savePlan(currentPlanId, {
-        ...currentPlan,
-        partyComp,
-        placements,
-      });
-    }
-
-    openDialog({ body: "Plan saved!" });
-    onSaved();
-  };
-
-  const openSaveAsDialog = (onSaved = () => {}) => {
-    const nameRef = { current: "" };
-    const errorHandleRef = { current: null };
-
-    const submitSaveAs = () => {
-      const trimmedName = nameRef.current.trim();
-      if (!trimmedName) {
-        errorHandleRef.current?.showError();
-        return;
-      }
-
-      const newPlanId = generatePlanId(currentTimeline, trimmedName);
-      savePlan(newPlanId, {
-        bossId: currentTimeline,
-        planName: trimmedName,
-        partyComp,
-        placements,
-      });
-
-      deleteDraft();
-      onPlanChange(newPlanId);
-      openDialog({ body: "Plan saved as new!" });
-      onSaved();
-    };
-
-    openDialog({
-      header: "Save Plan As",
-      body: (
-        <SaveAsBody
-          ref={errorHandleRef}
-          onNameChange={(value) => {
-            nameRef.current = value;
-          }}
-          onSubmit={submitSaveAs}
-        />
-      ),
-      buttons: [
-        { label: "Cancel", onClick: closeDialog, variant: "secondary" },
-        { label: "Save", onClick: submitSaveAs },
-      ],
-    });
-  };
 
   const handleDelete = () => {
     if (!currentPlanId) return;
@@ -125,9 +61,8 @@ export default function PlanManager({
   };
 
   const handleImport = () => {
-    const onSave = () => {
-      handleSave(() => fileInputRef.current?.click());
-    };
+    const openPicker = () => fileInputRef.current?.click();
+    const onSaveThenImport = () => onSave(openPicker);
     const onDiscard = () => {
       deleteDraft();
       closeDialog();
@@ -135,12 +70,12 @@ export default function PlanManager({
       // The picker's own cancel event isn't a signal worth hanging this on,
       // so Import has no target plan to fall back on once a file is chosen.
       onPlanChange(null);
-      fileInputRef.current?.click();
+      openPicker();
     };
     if (getDraft() !== null) {
-      confirmDiscardDraft(onSave, onDiscard);
+      confirmDiscardDraft(onSaveThenImport, onDiscard);
     } else {
-      fileInputRef.current?.click();
+      openPicker();
     }
   };
 
@@ -168,29 +103,12 @@ export default function PlanManager({
     e.target.value = "";
   };
 
-  const handlePlanSelect = (planId) => {
-    const onSave = () => {
-      handleSave(() => onPlanChange(planId));
-    };
-    const onDiscard = () => {
-      deleteDraft();
-      closeDialog();
-      onPlanChange(planId);
-    };
-    const draft = getDraft();
-    if (draft && planId !== draft.planId) {
-      confirmDiscardDraft(onSave, onDiscard);
-    } else {
-      onPlanChange(planId);
-    }
-  };
-
   return (
     <div className="flex items-center gap-2">
       {/* Plan Selector */}
       <select
         value={currentPlanId || ""}
-        onChange={(e) => handlePlanSelect(e.target.value || null)}
+        onChange={(e) => onPlanChange(e.target.value || null)}
         className="px-3 py-2 bg-gray-700 rounded"
       >
         <option value="">New Plan (Unsaved)</option>
@@ -203,7 +121,7 @@ export default function PlanManager({
 
       {/* Action Buttons */}
       <button
-        onClick={() => handleSave()}
+        onClick={() => onSave()}
         className="flex items-center gap-1 px-3 py-2 bg-blue-600 rounded hover:bg-blue-700"
         title="Save"
       >
@@ -212,7 +130,14 @@ export default function PlanManager({
       </button>
 
       <button
-        onClick={() => openSaveAsDialog()}
+        onClick={() =>
+          openSaveAsDialog({
+            currentTimeline,
+            partyComp,
+            placements,
+            onSaved: onPlanChange,
+          })
+        }
         className="flex items-center gap-1 px-3 py-2 bg-blue-600 rounded hover:bg-blue-700"
         title="Save As"
       >
@@ -256,54 +181,4 @@ export default function PlanManager({
       />
     </div>
   );
-}
-
-/**
- * A body component for the Save As dialog. Exposes a showError() method via
- * ref so submitSaveAs (owned by the sibling Save button in DialogFooter) can
- * trigger this component's own "needs a name" state.
- * @param {Object} ref - imperative handle exposing showError()
- * @param {Function} onNameChange - called with the input's current value on each keystroke
- * @param {Function} onSubmit - called when Enter is pressed inside the input
- */
-function SaveAsBody({ ref, onNameChange, onSubmit }) {
-  const [needsName, setNeedsName] = useState(false);
-
-  useImperativeHandle(
-    ref,
-    () => ({
-      showError: () => setNeedsName(true),
-    }),
-    [],
-  );
-
-  return (
-    <>
-      <input
-        type="text"
-        defaultValue=""
-        onChange={(e) => onNameChange(e.target.value)}
-        onKeyDown={(e) => {
-          if (e.key === "Enter") onSubmit();
-        }}
-        placeholder="Enter plan name..."
-        className="w-full px-3 py-2 bg-gray-700 rounded"
-      />
-      {needsName && (
-        <div className="text-red-500">*Please enter a plan name.</div>
-      )}
-    </>
-  );
-}
-
-function confirmDiscardDraft(onSave, onDiscard) {
-  return openDialog({
-    header: "Save Draft?",
-    body: "Switching to a different plan will delete your draft.",
-    buttons: [
-      { label: "Cancel", onClick: closeDialog, variant: "secondary" },
-      { label: "Discard and Continue", onClick: onDiscard, variant: "danger" },
-      { label: "Save and Continue", onClick: onSave, variant: "primary" },
-    ],
-  });
 }

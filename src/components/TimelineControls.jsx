@@ -7,6 +7,7 @@ export default function TimelineControls({
   availableTimelines,
   currentPlanId,
   onPlanChange,
+  onSave,
   partyComp,
   placements,
 }) {
@@ -35,6 +36,7 @@ export default function TimelineControls({
             currentTimeline={currentTimeline}
             currentPlanId={currentPlanId}
             onPlanChange={onPlanChange}
+            onSave={onSave}
             partyComp={partyComp}
             placements={placements}
           />
