@@ -6,11 +6,16 @@ import { closeDialog, openDialog } from "./dialogStore";
  * what "save" and "discard" mean for their own flow.
  * @param {Function} onSave - Called if the user chooses to save first.
  * @param {Function} onDiscard - Called if the user chooses to discard the draft.
+ * @param {string} body - The message to display in the dialog.
  */
-export function confirmDiscardDraft(onSave, onDiscard) {
+export function confirmDiscardDraft(
+  onSave,
+  onDiscard,
+  body = "Switching away will delete your draft.",
+) {
   return openDialog({
     header: "Save Draft?",
-    body: "Switching away will delete your draft.",
+    body,
     buttons: [
       { label: "Cancel", onClick: closeDialog, variant: "secondary" },
       { label: "Discard and Continue", onClick: onDiscard, variant: "danger" },

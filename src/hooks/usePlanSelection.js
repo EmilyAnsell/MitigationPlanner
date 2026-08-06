@@ -82,7 +82,8 @@ export function usePlanSelection({
         closeDialog();
         applyTimelineChange(newTimeline);
       };
-      confirmDiscardDraft(onSave, onDiscard);
+      const body = `Switching to a different boss will delete your draft.`;
+      confirmDiscardDraft(onSave, onDiscard, body);
       return;
     }
     applyTimelineChange(newTimeline);
@@ -165,7 +166,8 @@ export function usePlanSelection({
         closeDialog();
         applyPlanChange(planId);
       };
-      confirmDiscardDraft(onSave, onDiscard);
+      const body = `Switching to a different plan will delete your draft.`;
+      confirmDiscardDraft(onSave, onDiscard, body);
       return;
     }
     applyPlanChange(planId);
