@@ -13,7 +13,7 @@ only in the selector. Use `dialogStore.openDialog` with:
 - Cancel / dismiss → leave the draft in the selector for later.
 
 **Why it matters:** it's the cleanest mitigation for the refresh-eviction risk —
-after a refresh the app boots to "New Plan (Unsaved)", and the *next* edit would
+after a refresh the app boots to "New Plan (Unsaved)", and the _next_ edit would
 otherwise silently fork a new draft over the persisted one. Prompting up front
 makes the existing draft visible before that can happen.
 
@@ -21,7 +21,7 @@ makes the existing draft visible before that can happen.
 
 ## 3. Undo button (the real fix)
 
-The whole point of this feature is to *reduce* interruptive prompts. Every
+The whole point of this feature is to _reduce_ interruptive prompts. Every
 prompt above (eviction warning, boss-switch, draft-on-load) is a stop-gap for
 "we can't take a destructive action back." A general **Undo** would let us drop
 most of these prompts entirely and just let people experiment freely. Biggest
@@ -63,8 +63,9 @@ All selection mutations already funnel through this hook, so the mirror stays
 contained.
 
 **Keep in mind:**
+
 - The `savePlan` **write** (`JSON.stringify` of the whole plan) is the larger
-  cost and stays. Fine today because autosave fires per *committed* edit (drop,
+  cost and stays. Fine today because autosave fires per _committed_ edit (drop,
   not per drag-pixel); if edits ever get chattier, debouncing the write is the
   next lever.
 - One storage read genuinely stays: the orphan-draft check `getDraft()` in
@@ -85,3 +86,7 @@ covered; it isn't — no collision handling exists yet).
 **Fix, when picked up:** on Save As submit, look up whether a plan with that
 name (for the current boss) already exists; if so, either reuse its id (true
 replace) or warn the user before overwriting.
+
+## 8. Disallow exporting drafts - require a Save(/Save As) first
+
+When exporting, if a draft is active, a draft will be exported. This could possibly break our "one draft allowed" constraint as well as generally causing confusion when an exported draft is later imported. We should not allow a draft to be exported, and instead require the user to Save first. To accomplish this, we can open a Save As dialog on the export path which exports when a save button is clicked and cancels the export if the user cancels the save dialog.
