@@ -66,10 +66,26 @@ export function usePlanSelection({
     }
   };
 
-  const handleTimelineChange = (newTimeline) => {
+  const applyTimelineChange = (newTimeline) => {
     setCurrentTimeline(newTimeline);
     setCurrentPlanId(null);
     setPlacements([]);
+  };
+
+  const handleTimelineChange = (newTimeline) => {
+    const draft = getDraft();
+    // Unlike handlePlanChange, the plan will always be changed on timeline switch
+    if (draft) {
+      const onSave = () => handleSave(() => applyTimelineChange(newTimeline));
+      const onDiscard = () => {
+        deleteDraft();
+        closeDialog();
+        applyTimelineChange(newTimeline);
+      };
+      confirmDiscardDraft(onSave, onDiscard);
+      return;
+    }
+    applyTimelineChange(newTimeline);
   };
 
   /**

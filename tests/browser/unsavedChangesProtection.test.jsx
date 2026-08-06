@@ -717,3 +717,132 @@ describe("import confirmation dialog", () => {
       .toBe(findPlanIdByName("Imported Plan"));
   });
 });
+
+/* Step 6: leaving a draft by switching boss is confirmed the same way as
+switching plans (Step 5) - handleTimelineChange is expected to reuse
+confirmDiscardDraft, so this shares the exact three buttons and Save/Save-As
+branching. Boss switching always clears placements and currentPlanId (a boss's
+placements don't carry over to another boss), so "switched" here means the
+boss select's value changed and the screen is back to an empty New Plan
+(Unsaved). Not yet implemented - handleTimelineChange currently switches
+unconditionally, so every test below except the "no draft" case is expected
+to fail until Step 6 lands. */
+describe("boss-switch confirmation dialog", () => {
+  afterEach(() => {
+    cleanup();
+    closeDialog();
+    localStorage.clear();
+  });
+
+  // "Boss:" is a static label with a single text node (unlike the option
+  // text, which interpolates formatTime and would be brittle to match on).
+  function getBossSelect() {
+    return page.getByText("Boss:").element().closest("div").querySelector("select");
+  }
+
+  function selectBoss(bossId) {
+    fireEvent.change(getBossSelect(), { target: { value: bossId } });
+  }
+
+  test("with no draft, changing boss switches immediately without prompting", async () => {
+    render(<App />);
+
+    selectBoss("ultimate-boss");
+
+    await expect.poll(() => getBossSelect().value).toBe("ultimate-boss");
+    await expect.element(page.getByRole("dialog")).not.toBeInTheDocument();
+  });
+
+  test("changing boss while a draft exists prompts and switches nothing yet", async () => {
+    await renderOnDraft([pldPlacement("rampart")]);
+
+    selectBoss("ultimate-boss");
+
+    await expect.element(dialogButton("Save")).toBeInTheDocument();
+    await expect
+      .element(dialogButton("Discard and Continue"))
+      .toBeInTheDocument();
+    await expect.element(dialogButton("Cancel")).toBeInTheDocument();
+    expect(getBossSelect().value).toBe("dancing-green");
+    // Still the draft's content on screen - the switch is deferred until answered.
+    await expect.element(page.getByAltText("Rampart")).toBeInTheDocument();
+  });
+
+  test("Cancel leaves the draft intact and the boss where it was", async () => {
+    const draftId = await renderOnDraft([pldPlacement("rampart")]);
+    selectBoss("ultimate-boss");
+
+    fireEvent.click(dialogButton("Cancel").element());
+
+    await expect.element(page.getByRole("dialog")).not.toBeInTheDocument();
+    expect(getDraft().planId).toBe(draftId);
+    expect(getBossSelect().value).toBe("dancing-green");
+    await expect.element(page.getByAltText("Rampart")).toBeInTheDocument();
+  });
+
+  test("Discard and Continue removes the draft and switches the boss", async () => {
+    await renderOnDraft([pldPlacement("rampart")]);
+    selectBoss("ultimate-boss");
+
+    fireEvent.click(dialogButton("Discard and Continue").element());
+
+    await expect.poll(() => getBossSelect().value).toBe("ultimate-boss");
+    await expect.element(page.getByRole("dialog")).not.toBeInTheDocument();
+    expect(getDraft()).toBe(null);
+    await expect
+      .element(page.getByAltText("Rampart"))
+      .not.toBeInTheDocument();
+    await expect.poll(() => getPlanSelect().value).toBe("");
+  });
+
+  test("Save on a sourced draft commits it onto its source plan, then switches the boss", async () => {
+    const fooId = seedPlan("Foo");
+    const draftPlacements = [pldPlacement("rampart")];
+    await renderOnDraft(draftPlacements, {
+      planName: "Foo",
+      sourcePlanId: fooId,
+    });
+
+    selectBoss("ultimate-boss");
+    fireEvent.click(dialogButton("Save").element());
+
+    await expect.poll(() => getBossSelect().value).toBe("ultimate-boss");
+    expect(getDraft()).toBe(null);
+    expect(loadPlan(fooId)).toMatchObject({
+      planName: "Foo",
+      placements: draftPlacements,
+    });
+    /* The switch, not a plan load, is what completes the boss change - the
+    committed plan stays saved under its own boss (dancing-green), and the
+    screen resets to New Plan (Unsaved) rather than reselecting Foo. */
+    await expect.poll(() => getPlanSelect().value).toBe("");
+    await expect
+      .element(page.getByAltText("Rampart"))
+      .not.toBeInTheDocument();
+  });
+
+  test("Save on a from-scratch draft routes through Save As, and the boss switches only once a name is given", async () => {
+    await renderOnDraft([pldPlacement("rampart")]);
+
+    selectBoss("ultimate-boss");
+    fireEvent.click(dialogButton("Save").element());
+
+    await expect.element(page.getByText("Save Plan As")).toBeInTheDocument();
+    // Nothing is switched and nothing is committed while the name is outstanding.
+    expect(getBossSelect().value).toBe("dancing-green");
+    expect(getDraft()).not.toBe(null);
+
+    const input = page.getByPlaceholder("Enter plan name...").element();
+    fireEvent.change(input, { target: { value: "Named Plan" } });
+    fireEvent.click(dialogButton("Save").element());
+
+    await expect.poll(() => getBossSelect().value).toBe("ultimate-boss");
+    expect(getDraft()).toBe(null);
+    // Saved under the boss it was drafted for, not the boss just switched to.
+    expect(loadPlan(findPlanIdByName("Named Plan"))).toMatchObject({
+      bossId: "dancing-green",
+      placements: [pldPlacement("rampart")],
+    });
+    await expect.poll(() => getPlanSelect().value).toBe("");
+  });
+});
