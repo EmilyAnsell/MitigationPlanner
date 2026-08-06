@@ -8,6 +8,7 @@ import {
   generatePlanId,
   exportPlan,
   importPlan,
+  getDraft,
   commitDraft,
   deleteDraft,
 } from "../utils/planStorage";
@@ -26,10 +27,10 @@ export default function PlanManager({
   const currentPlan = currentPlanId ? loadPlan(currentPlanId) : null;
   const currentSourceId = currentPlan?.sourcePlanId;
 
-  const handleSave = () => {
+  const handleSave = (onSaved = () => {}) => {
     // New plan or new draft
     if (!currentPlanId || (currentPlan?.isDraft && !currentSourceId)) {
-      openSaveAsDialog();
+      openSaveAsDialog(onSaved);
       return;
     }
 
@@ -45,9 +46,10 @@ export default function PlanManager({
     }
 
     openDialog({ body: "Plan saved!" });
+    onSaved();
   };
 
-  const openSaveAsDialog = () => {
+  const openSaveAsDialog = (onSaved = () => {}) => {
     const nameRef = { current: "" };
     const errorHandleRef = { current: null };
 
@@ -69,6 +71,7 @@ export default function PlanManager({
       deleteDraft();
       onPlanChange(newPlanId);
       openDialog({ body: "Plan saved as new!" });
+      onSaved();
     };
 
     openDialog({
@@ -122,7 +125,23 @@ export default function PlanManager({
   };
 
   const handleImport = () => {
-    fileInputRef.current?.click();
+    const onSave = () => {
+      handleSave(() => fileInputRef.current?.click());
+    };
+    const onDiscard = () => {
+      deleteDraft();
+      closeDialog();
+      // Reset to New Plan immediately, not just on a successful import.
+      // The picker's own cancel event isn't a signal worth hanging this on,
+      // so Import has no target plan to fall back on once a file is chosen.
+      onPlanChange(null);
+      fileInputRef.current?.click();
+    };
+    if (getDraft() !== null) {
+      confirmDiscardDraft(onSave, onDiscard);
+    } else {
+      fileInputRef.current?.click();
+    }
   };
 
   const handleFileSelect = (e) => {
@@ -149,12 +168,29 @@ export default function PlanManager({
     e.target.value = "";
   };
 
+  const handlePlanSelect = (planId) => {
+    const onSave = () => {
+      handleSave(() => onPlanChange(planId));
+    };
+    const onDiscard = () => {
+      deleteDraft();
+      closeDialog();
+      onPlanChange(planId);
+    };
+    const draft = getDraft();
+    if (draft && planId !== draft.planId) {
+      confirmDiscardDraft(onSave, onDiscard);
+    } else {
+      onPlanChange(planId);
+    }
+  };
+
   return (
     <div className="flex items-center gap-2">
       {/* Plan Selector */}
       <select
         value={currentPlanId || ""}
-        onChange={(e) => onPlanChange(e.target.value || null)}
+        onChange={(e) => handlePlanSelect(e.target.value || null)}
         className="px-3 py-2 bg-gray-700 rounded"
       >
         <option value="">New Plan (Unsaved)</option>
@@ -167,7 +203,7 @@ export default function PlanManager({
 
       {/* Action Buttons */}
       <button
-        onClick={handleSave}
+        onClick={() => handleSave()}
         className="flex items-center gap-1 px-3 py-2 bg-blue-600 rounded hover:bg-blue-700"
         title="Save"
       >
@@ -176,7 +212,7 @@ export default function PlanManager({
       </button>
 
       <button
-        onClick={openSaveAsDialog}
+        onClick={() => openSaveAsDialog()}
         className="flex items-center gap-1 px-3 py-2 bg-blue-600 rounded hover:bg-blue-700"
         title="Save As"
       >
@@ -258,4 +294,16 @@ function SaveAsBody({ ref, onNameChange, onSubmit }) {
       )}
     </>
   );
+}
+
+function confirmDiscardDraft(onSave, onDiscard) {
+  return openDialog({
+    header: "Save Draft?",
+    body: "Switching to a different plan will delete your draft.",
+    buttons: [
+      { label: "Cancel", onClick: closeDialog, variant: "secondary" },
+      { label: "Discard and Continue", onClick: onDiscard, variant: "danger" },
+      { label: "Save and Continue", onClick: onSave, variant: "primary" },
+    ],
+  });
 }
