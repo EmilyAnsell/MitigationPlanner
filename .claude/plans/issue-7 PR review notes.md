@@ -11,27 +11,6 @@ them.
 
 ---
 
-## 2. State ownership between `App` and `usePlanSelection` is mutually dependent
-
-`usePlanSelection` receives `setPartyComp` / `setPlacements`, and `App`
-receives `handleAutosave` back — each side mutates the other's state. This is
-the "don't hand out raw state setters" convention from CLAUDE.md, which applies
-to a hook boundary as much as a component one. It also forces the
-use-before-define in `App.jsx`, where `editPlacements` closes over a
-`const handleAutosave` declared ~18 lines below it — safe only because nothing
-calls it during render, and something `no-use-before-define` would flag.
-
-The `editX` (persists) vs `setX` (loads, never persists) split is a real
-invariant enforced only by naming discipline; nothing stops a future component
-from being handed `setPlacements` directly.
-
-**Options, in increasing order of work:**
-
-- Move `placements` / `partyComp` into `usePlanSelection` — it already owns
-  their persistence semantics, so the setters stop crossing the boundary.
-- Drive both through a reducer, so "edit" vs "load" becomes an action type the
-  reducer enforces rather than a convention on two parallel setter pairs.
-
 ## 3. `editPlacements` breaks `useDragPlacement`'s memoization
 
 `editPlacements` is a fresh closure every render and is a dependency of

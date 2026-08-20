@@ -13,33 +13,36 @@ import { confirmDiscardDraft } from "../utils/confirmDiscardDraft";
 import { openSaveAsDialog } from "../utils/openSaveAsDialog";
 
 /**
- * Owns which boss timeline and plan are currently selected, the handlers that
+ * Owns which boss timeline, party comp, placements, and plan are currently selected, the handlers that
  * change them, and the edit-triggered autosave. Switching boss resets the plan;
  * switching plan can retarget the boss. Switching away from an unsaved draft
  * is guarded by a confirm dialog (see confirmDiscardDraft).
- * @param {Object} partyComp - The 8-slot party composition (used as a loadPlan fallback).
- * @param {Function} setPartyComp - Setter for partyComp.
- * @param {Array} placements - The current placements (used when saving).
- * @param {Function} setPlacements - Setter for placements.
- * @returns {Object} - `currentTimeline`, `currentPlanId`, the derived `timeline`, `handleTimelineChange`/`handlePlanChange`/`handleSave`, and `handleAutosave`.
+ * @returns {Object} - `currentTimeline`, `currentPlanId`, the derived `timeline`,
+ * `handleTimelineChange`/`handlePlanChange`/`handleSave`, `editPartyComp`, `partyComp`,
+    `editPlacements`/`removePlacement`, `placements`
  */
-export function usePlanSelection({
-  partyComp,
-  setPartyComp,
-  placements,
-  setPlacements,
-}) {
+export function usePlanSelection() {
   // Uses a default "dancing-green" boss for now. In the future, this could perhaps be a LATEST_BOSS.
   const [currentTimeline, setCurrentTimeline] = useState("dancing-green");
   const [currentPlanId, setCurrentPlanId] = useState(null);
+  const [placements, setPlacements] = useState([]);
+  const [partyComp, setPartyComp] = useState({
+    tank1: "PLD",
+    tank2: "WAR",
+    healer1: "AST",
+    healer2: "SCH",
+    dps1: "DRG",
+    dps2: "RDM",
+    dps3: "BRD",
+    dps4: "PCT",
+  });
 
   const timeline = BOSS_TIMELINES[currentTimeline];
 
   /**
-   * Persists an edit to the currently-selected plan. Called only from App's
-   * edit-wrapped setters, never from a load path, so loading a plan never
-   * autosaves. Given the next partyComp/placements because this hook does not
-   * own that state.
+   * Persists an edit to the currently-selected plan. Takes the next
+   * partyComp/placements explicitly rather than reading the hook's own state,
+   * since the caller's setPartyComp/setPlacements haven't landed yet when this runs.
    * @param {Object} partyComp - The next 8-slot party composition.
    * @param {Array} placements - The next placements array.
    */
@@ -173,13 +176,43 @@ export function usePlanSelection({
     applyPlanChange(planId);
   };
 
+  /**
+   * Sets the partyComp to the composition given by a changed selector, then autosaves.
+   * @param {Object} nextComp
+   */
+  const editPartyComp = (nextComp) => {
+    setPartyComp(nextComp);
+    handleAutosave({ partyComp: nextComp, placements });
+  };
+
+  /**
+   * Sets the placements state to the list given by adding/removing/moving an ability on the timeline, then autosaves.
+   * @param {Array} nextPlacements
+   */
+  const editPlacements = (nextPlacements) => {
+    setPlacements(nextPlacements);
+    handleAutosave({ partyComp, placements: nextPlacements });
+  };
+
+  /**
+   * Removes the indicated placement from the placements state.
+   * @param {string} placementId
+   */
+  const removePlacement = (placementId) => {
+    editPlacements(placements.filter((p) => p.placementId !== placementId));
+  };
+
   return {
     currentTimeline,
     currentPlanId,
     timeline,
     handleTimelineChange,
     handlePlanChange,
-    handleAutosave,
     handleSave,
+    editPartyComp,
+    partyComp,
+    editPlacements,
+    removePlacement,
+    placements,
   };
 }

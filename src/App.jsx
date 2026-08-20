@@ -17,39 +17,9 @@ import { usePlanSelection } from "./hooks/usePlanSelection";
 import { closeDialog, openDialog } from "./utils/dialogStore";
 
 export default function MitigationPlanner() {
-  const [partyComp, setPartyComp] = useState({
-    tank1: "PLD",
-    tank2: "WAR",
-    healer1: "AST",
-    healer2: "SCH",
-    dps1: "DRG",
-    dps2: "RDM",
-    dps3: "BRD",
-    dps4: "PCT",
-  });
-  const [placements, setPlacements] = useState([]);
   const [prepullVisible, setPrepullVisible] = useState(false);
   const [zoom, setZoom] = useState(4);
   const [selectedSlot, setSelectedSlot] = useState("tank1");
-
-  const prepullVisibleSeconds = prepullVisible ? PRE_PULL_TIMER_DURATION : 0;
-  const pixelsPerSecond = PIXELS_PER_SECOND * (zoom / 4);
-  const selectedAbilities = getAbilitiesForSlot(partyComp, selectedSlot, JOBS);
-
-  // Edit-wrapped setters: every genuine edit persists via handleAutosave. Loads
-  // (in usePlanSelection) use the raw setters and never autosave, so selecting a
-  // plan or draft can't fork one.
-  const editPlacements = (next) => {
-    setPlacements(next);
-    handleAutosave({ partyComp, placements: next });
-  };
-  const editPartyComp = (next) => {
-    setPartyComp(next);
-    handleAutosave({ partyComp: next, placements });
-  };
-  const removePlacement = (placementId) => {
-    editPlacements(placements.filter((p) => p.placementId !== placementId));
-  };
 
   const {
     currentTimeline,
@@ -57,9 +27,17 @@ export default function MitigationPlanner() {
     timeline,
     handleTimelineChange,
     handlePlanChange,
-    handleAutosave,
     handleSave,
-  } = usePlanSelection({ partyComp, setPartyComp, placements, setPlacements });
+    editPartyComp,
+    partyComp,
+    editPlacements,
+    removePlacement,
+    placements,
+  } = usePlanSelection();
+
+  const prepullVisibleSeconds = prepullVisible ? PRE_PULL_TIMER_DURATION : 0;
+  const pixelsPerSecond = PIXELS_PER_SECOND * (zoom / 4);
+  const selectedAbilities = getAbilitiesForSlot(partyComp, selectedSlot, JOBS);
 
   const {
     draggedAbility,
