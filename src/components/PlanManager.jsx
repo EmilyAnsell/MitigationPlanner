@@ -113,11 +113,12 @@ export default function PlanManager({
     <div className="flex items-center gap-2">
       {/* Plan Selector */}
       <select
+        aria-label="Plan"
         value={currentPlanId || ""}
         onChange={(e) => onPlanChange(e.target.value || null)}
         className="px-3 py-2 bg-gray-700 rounded"
       >
-        <option value="">New Plan (Unsaved)</option>
+        <option value="">New Plan</option>
         {plansForBoss.map((plan) => (
           <option key={plan.planId} value={plan.planId}>
             {plan.planName}

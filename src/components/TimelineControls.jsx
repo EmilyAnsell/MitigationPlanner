@@ -18,8 +18,11 @@ export default function TimelineControls({
         {/* Boss selector and plan management */}
         <div className="flex items-center gap-4 flex-wrap">
           <div className="flex items-center gap-2">
-            <label className="text-sm text-gray-400">Boss:</label>
+            <label htmlFor="boss-select" className="text-sm text-gray-400">
+              Boss:
+            </label>
             <select
+              id="boss-select"
               value={currentTimeline}
               onChange={(e) => onTimelineChange(e.target.value)}
               className="bg-gray-700 rounded px-4 py-2"

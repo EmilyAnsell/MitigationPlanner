@@ -52,20 +52,16 @@ function pldPlacement(abilityId, startTime = 0) {
   };
 }
 
+function getPlanSelect() {
+  return page.getByRole("combobox", { name: "Plan" }).element();
+}
+
 // Loads a plan/draft via PlanManager's plan selector - the app's only seam for
 // putting placements into state without a UI drag. Must be called with a
 // planId that already exists in storage before render (see seedDraft
 // above) - PlanManager only re-reads localStorage on its own render.
 function selectPlan(planId) {
-  const planSelect = page
-    .getByText("New Plan (Unsaved)")
-    .element()
-    .closest("select");
-  fireEvent.change(planSelect, { target: { value: planId } });
-}
-
-function getPlanSelect() {
-  return page.getByText("New Plan (Unsaved)").element().closest("select");
+  fireEvent.change(getPlanSelect(), { target: { value: planId } });
 }
 
 // Seeds a finalized (non-draft) plan for the boss the app boots to.
@@ -143,11 +139,7 @@ describe("draft persistence and selection", () => {
 
     render(<App />);
 
-    const planSelect = page
-      .getByText("New Plan (Unsaved)")
-      .element()
-      .closest("select");
-    expect(planSelect.value).toBe("");
+    expect(getPlanSelect().value).toBe("");
     await expect
       .element(page.getByText("New Plan (draft)"))
       .toBeInTheDocument();
@@ -270,7 +262,7 @@ describe("draft-aware auto-save (the fork)", () => {
     expect(draft.planName).toBe("Foo (draft)");
   });
 
-  test("editing from `New Plan (Unsaved)` forks a `New Plan (draft)` with no source", async () => {
+  test("editing from `New Plan` forks a `New Plan (draft)` with no source", async () => {
     render(<App />);
 
     placeAbility("Holy Sheltron", "dropzone-tank1");
@@ -355,7 +347,7 @@ describe("the Save button", () => {
     expect(getPlansByBoss("dancing-green")).toHaveLength(1);
     expect(getDraft()).toBe(null);
     // Saving is not also a navigation - Foo stays loaded and on screen rather
-    // than dropping back to "New Plan (Unsaved)".
+    // than dropping back to "New Plan".
     await expect.poll(() => getPlanSelect().value).toBe(fooId);
     await expect.element(page.getByAltText("Rampart")).toBeInTheDocument();
   });
@@ -563,7 +555,7 @@ describe("plan-switch confirmation dialog", () => {
     expect(getDraft().planId).toBe(draftId);
   });
 
-  test("switching to New Plan (Unsaved) while a draft exists prompts the same way", async () => {
+  test("switching to New Plan while a draft exists prompts the same way", async () => {
     const draftId = await renderOnDraft([pldPlacement("rampart")]);
 
     selectPlan("");
@@ -783,7 +775,7 @@ plans - handleTimelineChange reuses confirmDiscardDraft, so this shares the
 exact three buttons and Save/Save-As branching. Boss switching always clears
 placements and currentPlanId (a boss's placements don't carry over to another
 boss), so "switched" here means the boss select's value changed and the
-screen is back to an empty New Plan (Unsaved). */
+screen is back to an empty New Plan. */
 describe("boss-switch confirmation dialog", () => {
   afterEach(() => {
     cleanup();
@@ -791,14 +783,10 @@ describe("boss-switch confirmation dialog", () => {
     localStorage.clear();
   });
 
-  // "Boss:" is a static label with a single text node (unlike the option
-  // text, which interpolates formatTime and would be brittle to match on).
+  // The colon is part of the accessible name: it comes from the visible
+  // <label>, which accessible-name computation takes verbatim.
   function getBossSelect() {
-    return page
-      .getByText("Boss:")
-      .element()
-      .closest("div")
-      .querySelector("select");
+    return page.getByRole("combobox", { name: "Boss:" }).element();
   }
 
   function selectBoss(bossId) {
@@ -873,7 +861,7 @@ describe("boss-switch confirmation dialog", () => {
     });
     /* The switch, not a plan load, is what completes the boss change - the
     committed plan stays saved under its own boss (dancing-green), and the
-    screen resets to New Plan (Unsaved) rather than reselecting Foo. */
+    screen resets to New Plan rather than reselecting Foo. */
     await expect.poll(() => getPlanSelect().value).toBe("");
     await expect.element(page.getByAltText("Rampart")).not.toBeInTheDocument();
   });
