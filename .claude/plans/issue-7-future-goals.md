@@ -7,6 +7,8 @@ but discovered while designing it. Each is a candidate follow-up sub-issue.
 
 Currently, if the application is closed and re-opened or reloaded while a draft is being worked on, it will load to the default New Plan (unsaved) with the draft hidden away in the plan selector. On load, it would be best to present the draft to the user so they can recover any potentially lost work without accidentally losing it on a switch. This preserves the "never have a draft in the plan list but not selected" expectation.
 
+As we adjust this, we should adjust the app to load with the latest draft/plan selected AND the matching boss - not defaulting to dancing-green which is just a placeholder. Let's address that here, and add testing to ensure draft loading and saving in this scenario work.
+
 ### PR review notes (issue #24)
 
 Two concrete data-loss paths from this gap, both raised in the #25 review. They
