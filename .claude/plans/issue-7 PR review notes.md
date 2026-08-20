@@ -11,43 +11,6 @@ them.
 
 ---
 
-## 1. `PlanManager` reads `localStorage` during render
-
-`PlanManager.jsx` calls `getPlansByBoss(currentTimeline)` and
-`loadPlan(currentPlanId)` in its render body. That is an impure render over an
-external mutable store — precisely what `useSyncExternalStore` exists for, and
-what this codebase already does correctly for `dialogStore` / `GlobalDialog`.
-
-It works today, but by coincidence rather than by construction. All eleven
-storage-mutation call sites outside `planStorage.js` are followed, in the same
-event, by a `setState` carrying a value React can't bail out on — `setPlacements`
-is always handed a fresh array literal or a freshly parsed one, and the fork
-path also sets a new `currentPlanId`. So `App` always re-renders, `PlanManager`
-always re-reads, and the dropdown is always current.
-
-**There is no reachable single-tab symptom.** (An earlier draft of this note
-claimed Import → "Discard and Continue" with `currentPlanId === null` left a
-phantom draft in the dropdown; that is wrong — `applyPlanChange(null)` calls
-`setPlacements([])` with a new array every time, so the re-render does happen.)
-
-What is genuinely broken is anything that mutates the store from outside this
-tab, since nothing subscribes to `storage` events: a second tab saving,
-renaming, or deleting a plan leaves this tab's dropdown, `currentPlan` lookups,
-and Delete/Export labels stale until an unrelated re-render. Same root cause as
-the missing-plan guards listed at the top of this file.
-
-So this is **low urgency, real as a trap**: the invariant "every storage write
-is paired with a state change" is unwritten and unenforced, and the first write
-that isn't paired will silently not appear.
-
-**Fix:** give `planStorage` a `subscribe` / `getSnapshot` pair (same shape as
-`dialogStore`) and consume it from `PlanManager` via `useSyncExternalStore`,
-with every mutating export emitting a change — and a `storage` event listener
-for the cross-tab case. This also **subsumes future-goal §4** — a subscribed
-snapshot removes the per-edit `getItem` + `JSON.parse` from `handleAutosave`
-without the hand-maintained state mirror that goal proposes, so the two should
-be picked up together (or §4 dropped in favour of this).
-
 ## 2. State ownership between `App` and `usePlanSelection` is mutually dependent
 
 `usePlanSelection` receives `setPartyComp` / `setPlacements`, and `App`

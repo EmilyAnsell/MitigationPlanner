@@ -35,7 +35,7 @@ offer Save at all when `currentPlanId !== draft.planId`.
 On boot `currentPlanId` is `null`, so the first edit takes `handleAutosave`'s
 fork branch, and `saveDraft` opens with an unconditional `deleteDraft()`. Last
 session's draft is gone with no prompt — the exact loss the feature exists to
-prevent. Note the fork branch fires on the *first* edit, so restoring the draft
+prevent. Note the fork branch fires on the _first_ edit, so restoring the draft
 must happen at mount, before any edit can be made, rather than lazily.
 
 **C. Drafts are matched globally, not per-boss.** `getDraft()` scans every
@@ -57,7 +57,7 @@ reflects state accurately.
 
 Optional: distinguish the (draft) option in the Plan Selector (italic, a leading symbol, a color, or a divider) so it reads as provisional rather than a peer of finalized plans.
 
-## 4. Mirror the current selection's metadata in hook state (perf / cleanup)
+## 4. Mirror the current selection's metadata in hook state (perf / cleanup) (do after 5,6,7 if 7 doesn't render unnecessary)
 
 `usePlanSelection.handleAutosave` calls `loadPlan(currentPlanId)` on **every
 edit**, purely to answer "is the current selection a draft, and what are its
@@ -107,3 +107,28 @@ replace) or warn the user before overwriting.
 ## 6. Disallow exporting drafts - require a Save(/Save As) first
 
 When exporting, if a draft is active, a draft will be exported. This could possibly break our "one draft allowed" constraint as well as generally causing confusion when an exported draft is later imported. We should not allow a draft to be exported, and instead require the user to Save first. To accomplish this, we can open a Save As dialog on the export path which exports when a save button is clicked and cancels the export if the user cancels the save dialog.
+
+## 7. Subscribe PlanManager to Storage to prevent multi-tab desync
+
+`PlanManager` reads `localStorage` during render
+`PlanManager.jsx` calls `getPlansByBoss(currentTimeline)` and
+`loadPlan(currentPlanId)` in its render body. That is an impure render over an
+external mutable store — precisely what `useSyncExternalStore` exists for, and
+what this codebase already does correctly for `dialogStore` / `GlobalDialog`.
+
+Anything that mutates the store from outside this tab will break the plan rendering,
+since nothing subscribes to `storage` events: a second tab saving,
+renaming, or deleting a plan leaves this tab's dropdown, `currentPlan` lookups,
+and Delete/Export labels stale until an unrelated re-render.
+
+So this is **low urgency, real as a trap**: the invariant "every storage write
+is paired with a state change" is unwritten and unenforced, and the first write
+that isn't paired will silently not appear.
+
+**Fix:** give `planStorage` a `subscribe` / `getSnapshot` pair (same shape as
+`dialogStore`) and consume it from `PlanManager` via `useSyncExternalStore`,
+with every mutating export emitting a change — and a `storage` event listener
+for the cross-tab case. This also **subsumes future-goal §4** — a subscribed
+snapshot removes the per-edit `getItem` + `JSON.parse` from `handleAutosave`
+without the hand-maintained state mirror that goal proposes, so the two should
+be picked up together **(or §4 dropped in favour of this)**.
