@@ -112,8 +112,13 @@ Add the job to `JOBS` in `src/data/jobs.js`. Drop the ability icon PNG into `src
 
 ### Suggested conventions not yet consistently applied
 
-- **Don't pass raw state setters as props** — `TimelineRow` receives `setHoveredAbility` and `setTooltipPosition` directly. Prefer wrapping in a named handler at the call site (`onHoverAbility`) so components don't take implicit ownership of parent state.
+- **Don't pass raw state setters as props** — `TimelineRow` receives `setHoveredAbility` and `setTooltipPosition` directly (existing violation, not yet fixed). Prefer wrapping in a named handler at the call site (`onHoverAbility`, `handlePlanIdChange`) so child components doesn't take implicit ownership of parent state — the state's owner keeps sole responsibility for what a change to it means.
 
 - **Extract magic numbers to named constants** — values like `labelWidth = 128`, the `snapThreshold = 2` in `validDropZones.js`, and the `laneHeight` arithmetic in `TimelineRow` should be named constants alongside `ROW_HEIGHT` and `PIXELS_PER_SECOND` in `bossTimelines.js`.
 
 - **`useMemo` with `[]` deps belongs at module scope** — `getJobsByCategory` in `PartyComposition.jsx` is memoized with an empty dependency array, making it equivalent to a constant. Move it outside the component as a module-level `const`.
+
+## Housekeeping
+
+- **`.claude/notes/`**: is where Claude can store its own notes as well as any "scratch" notes that I want left for myself. This directory is not part of the codebase and will not be committed to GitHub. It is for Claude's internal use only.
+- **`.claude/plans/`**: is where Claude can store PLANS for future work. Anytime I ask Claude to create a plan, it should be stored in this directory and used as a reference for future work and/or the work of the current feature branch. Plans here will be tracked on git so that other devs and devices can access the same plans. Plans will be pruned as features are completed.

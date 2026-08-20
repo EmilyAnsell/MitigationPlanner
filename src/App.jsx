@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import PartyComposition from "./components/PartyComposition";
 import PlayerSelector from "./components/PlayerSelector";
 import PlayerAbilities from "./components/PlayerAbilities";
@@ -12,29 +12,29 @@ import {
   PRE_PULL_TIMER_DURATION,
 } from "./data/bossTimelines";
 import { getAbilitiesForSlot } from "./utils/cooldownCalculations";
-import { loadPlan, savePlan } from "./utils/planStorage";
 import { useDragPlacement } from "./hooks/useDragPlacement";
+import { usePlanSelection } from "./hooks/usePlanSelection";
 import { closeDialog, openDialog } from "./utils/dialogStore";
 
 export default function MitigationPlanner() {
-  const [partyComp, setPartyComp] = useState({
-    tank1: "PLD",
-    tank2: "WAR",
-    healer1: "AST",
-    healer2: "SCH",
-    dps1: "DRG",
-    dps2: "RDM",
-    dps3: "BRD",
-    dps4: "PCT",
-  });
-  const [placements, setPlacements] = useState([]);
   const [prepullVisible, setPrepullVisible] = useState(false);
-  const [currentTimeline, setCurrentTimeline] = useState("dancing-green");
-  const [currentPlanId, setCurrentPlanId] = useState(null);
   const [zoom, setZoom] = useState(4);
   const [selectedSlot, setSelectedSlot] = useState("tank1");
 
-  const timeline = BOSS_TIMELINES[currentTimeline];
+  const {
+    currentTimeline,
+    currentPlanId,
+    timeline,
+    handleTimelineChange,
+    handlePlanChange,
+    handleSave,
+    editPartyComp,
+    partyComp,
+    editPlacements,
+    removePlacement,
+    placements,
+  } = usePlanSelection();
+
   const prepullVisibleSeconds = prepullVisible ? PRE_PULL_TIMER_DURATION : 0;
   const pixelsPerSecond = PIXELS_PER_SECOND * (zoom / 4);
   const selectedAbilities = getAbilitiesForSlot(partyComp, selectedSlot, JOBS);
@@ -49,54 +49,11 @@ export default function MitigationPlanner() {
     handleDropOnRow,
   } = useDragPlacement({
     placements,
-    setPlacements,
+    editPlacements,
     timelineDuration: timeline.duration,
     pixelsPerSecond,
     prepullVisibleSeconds,
   });
-
-  // Auto-save when placements or party comp changes
-  useEffect(() => {
-    if (currentPlanId) {
-      const planData = loadPlan(currentPlanId);
-      if (planData) {
-        savePlan(currentPlanId, {
-          ...planData,
-          partyComp,
-          placements,
-        });
-      }
-    }
-  }, [placements, partyComp, currentPlanId]);
-
-  const handleTimelineChange = (newTimeline) => {
-    setCurrentTimeline(newTimeline);
-    setCurrentPlanId(null);
-    setPlacements([]);
-  };
-
-  const handlePlanChange = (planId) => {
-    if (!planId) {
-      setCurrentPlanId(null);
-      setPlacements([]);
-      return;
-    }
-
-    const plan = loadPlan(planId);
-    if (plan) {
-      setCurrentPlanId(planId);
-      setPartyComp(plan.partyComp || partyComp);
-      setPlacements(plan.placements || []);
-
-      if (plan.bossId !== currentTimeline) {
-        setCurrentTimeline(plan.bossId);
-      }
-    }
-  };
-
-  const removePlacement = (placementId) => {
-    setPlacements(placements.filter((p) => p.placementId !== placementId));
-  };
 
   /**
    * Clears ability placements from a party slot, then runs `onCleared`.
@@ -113,7 +70,7 @@ export default function MitigationPlanner() {
   ) => {
     if (placements.some((p) => p.slot === slot)) {
       if (!isWithinRoleSwap) {
-        setPlacements(placements.filter((p) => p.slot !== slot));
+        editPlacements(placements.filter((p) => p.slot !== slot));
         onCleared();
         return;
       }
@@ -127,7 +84,7 @@ export default function MitigationPlanner() {
             variant: "danger",
             onClick: () => {
               closeDialog();
-              setPlacements(
+              editPlacements(
                 placements.filter(
                   (p) => p.slot !== slot || p.roleAbility === role,
                 ),
@@ -152,7 +109,7 @@ export default function MitigationPlanner() {
           variant: "danger",
           onClick: () => {
             closeDialog();
-            setPlacements([]);
+            editPlacements([]);
           },
         },
       ],
@@ -178,13 +135,14 @@ export default function MitigationPlanner() {
           availableTimelines={BOSS_TIMELINES}
           currentPlanId={currentPlanId}
           onPlanChange={handlePlanChange}
+          onSave={handleSave}
           partyComp={partyComp}
           placements={placements}
         />
 
         <PartyComposition
           partyComp={partyComp}
-          setPartyComp={setPartyComp}
+          editPartyComp={editPartyComp}
           onClearRow={clearRow}
         />
 

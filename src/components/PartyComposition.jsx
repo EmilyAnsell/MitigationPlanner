@@ -7,13 +7,13 @@ import { JOBS, PARTY_SLOTS, SLOT_LABELS } from "../data/jobs";
  * Each slot renders a job dropdown filtered to the roles valid for that slot,
  * and swapping a job clears the row's incompatible placements via `onClearRow`.
  * @param {Object} partyComp - Map of party slot key to selected job ID (or null)
- * @param {(comp: Object) => void} setPartyComp - Setter for the party composition
+ * @param {(comp: Object) => void} editPartyComp - Applies the next party composition (persists the edit via autosave)
  * @param {(slot: string, isWithinRoleSwap?: boolean, role?: string|null, onCleared?: () => void) => void} onClearRow - Clears a row on job swap; calls `onCleared` once the row is actually cleared (immediately, or after the user confirms), never if the user cancels
  * @returns {JSX.Element}
  */
 export default function PartyComposition({
   partyComp,
-  setPartyComp,
+  editPartyComp,
   onClearRow,
 }) {
   const [isExpanded, setIsExpanded] = useState(true);
@@ -92,7 +92,7 @@ export default function PartyComposition({
                   onChange={(e) => {
                     const newJobId = e.target.value;
                     const applyJobChange = () =>
-                      setPartyComp({
+                      editPartyComp({
                         ...partyComp,
                         [slot]: newJobId || null,
                       });
