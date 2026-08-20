@@ -62,7 +62,13 @@ export default function PlanManager({
 
   const handleImport = () => {
     const openPicker = () => fileInputRef.current?.click();
-    const onSaveThenImport = () => onSave(openPicker);
+    // Select whatever the save landed on before opening the picker.
+    // Avoids landing on a draft the save just deleted, in case the import is cancelled.
+    const onSaveThenImport = () =>
+      onSave((planId) => {
+        onPlanChange(planId);
+        openPicker();
+      });
     const onDiscard = () => {
       deleteDraft();
       closeDialog();

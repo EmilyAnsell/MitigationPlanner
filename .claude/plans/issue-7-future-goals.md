@@ -7,6 +7,45 @@ but discovered while designing it. Each is a candidate follow-up sub-issue.
 
 Currently, if the application is closed and re-opened or reloaded while a draft is being worked on, it will load to the default New Plan (unsaved) with the draft hidden away in the plan selector. On load, it would be best to present the draft to the user so they can recover any potentially lost work without accidentally losing it on a switch. This preserves the "never have a draft in the plan list but not selected" expectation.
 
+### PR review notes (issue #24)
+
+Two concrete data-loss paths from this gap, both raised in the #25 review. They
+share one root cause — **the "`currentPlanId` is the draft whenever a draft
+exists" invariant is maintained in memory only, and a reload breaks it** — so
+selecting the draft on load closes both. Worth keeping them in view while
+implementing, since the sequencing below matters.
+
+**A. "Save and Continue" saves the wrong content and then deletes the draft.**
+`confirmDiscardDraft`'s Save button routes to `usePlanSelection.handleSave`,
+which saves **whatever is currently in App state** — but the dialog fires
+whenever `getDraft()` is non-null, whether or not that draft is what's loaded.
+After a reload: draft in storage, `currentPlanId === null`, timeline empty.
+Pick any saved plan from the selector → prompt → "Save and Continue" →
+`handleSave` takes its `!currentPlan` branch → Save As → saves the **empty**
+on-screen plan under the new name, and `openSaveAsDialog` then calls
+`deleteDraft()`. The draft is destroyed and the "saved" plan is empty.
+
+Selecting the draft on load makes this unreachable in practice, but the guard
+is still unsound on its own: any future path that lets `currentPlanId` and
+`getDraft().planId` diverge re-opens it. Consider hardening `handleSave` too —
+operate on `getDraft()` when the draft isn't the current selection, or don't
+offer Save at all when `currentPlanId !== draft.planId`.
+
+**B. A reload plus one edit silently destroys the previous draft.**
+On boot `currentPlanId` is `null`, so the first edit takes `handleAutosave`'s
+fork branch, and `saveDraft` opens with an unconditional `deleteDraft()`. Last
+session's draft is gone with no prompt — the exact loss the feature exists to
+prevent. Note the fork branch fires on the *first* edit, so restoring the draft
+must happen at mount, before any edit can be made, rather than lazily.
+
+**C. Drafts are matched globally, not per-boss.** `getDraft()` scans every
+plan while `getPlansByBoss` filters by boss, so a draft belonging to boss A
+raises "Switching to a different plan will delete your draft" while the user is
+on boss B and cannot see it in their list. Only reachable via the same reload
+(boss switching otherwise resolves the draft first), and it is the state path A
+runs through. Either scope the guard's lookup to `currentTimeline` or restore
+the draft's boss along with the draft on load.
+
 ## 2. Disable "Save" when there is nothing to save
 
 Today (and in the core issue) pressing **Save** on a plain saved plan with no

@@ -60,7 +60,7 @@ export function usePlanSelection({
         planName: currentPlan?.planName ?? "New Plan",
         partyComp,
         placements,
-        sourcePlanId: currentPlanId ?? null,
+        sourcePlanId: currentPlan ? currentPlanId : null,
       });
       setCurrentPlanId(draftId);
     }
@@ -128,7 +128,7 @@ export function usePlanSelection({
     const currentPlan = currentPlanId ? loadPlan(currentPlanId) : null;
     const currentSourceId = currentPlan?.sourcePlanId;
 
-    if (!currentPlanId || (currentPlan?.isDraft && !currentSourceId)) {
+    if (!currentPlan || (currentPlan.isDraft && !currentSourceId)) {
       openSaveAsDialog({
         currentTimeline,
         partyComp,

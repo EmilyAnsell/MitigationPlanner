@@ -341,7 +341,9 @@ describe("the Save button", () => {
     clickSave();
 
     await expect.element(page.getByText("Plan saved!")).toBeInTheDocument();
-    await expect.element(page.getByText("Save Plan As")).not.toBeInTheDocument();
+    await expect
+      .element(page.getByText("Save Plan As"))
+      .not.toBeInTheDocument();
     expect(loadPlan(fooId)).toMatchObject({
       bossId: "dancing-green",
       planName: "Foo",
@@ -397,6 +399,36 @@ describe("the Save button", () => {
       placements: [pldPlacement("rampart")],
     });
     await expect.poll(() => getPlanSelect().value).toBe(newPlanId);
+  });
+
+  /* Storage is outside React and nothing subscribes to it, so the selected
+  plan can be removed from under the selection - by a second tab, or by the
+  user clearing site data. No in-app path strands the selection this way today;
+  deleting the key directly is how the test reaches the state, and this pins
+  the handling so a future path that does can't reintroduce the crash.
+  Falling through to Save As keeps the on-screen work recoverable - writing
+  into the missing key would mint a plan with no bossId, which no boss's plan
+  list would ever show again. */
+  test("on a selection whose plan no longer exists, routes through Save As rather than saving into the missing key", async () => {
+    const fooId = seedPlan("Foo");
+
+    render(<App />);
+    selectPlan(fooId);
+    await expect.poll(() => getPlanSelect().value).toBe(fooId);
+
+    localStorage.removeItem(`ffxiv-mit-plan-${fooId}`);
+    clickSave();
+
+    await expect.element(page.getByText("Save Plan As")).toBeInTheDocument();
+    expect(loadPlan(fooId)).toBe(null);
+
+    const input = page.getByPlaceholder("Enter plan name...").element();
+    fireEvent.change(input, { target: { value: "Recovered" } });
+    fireEvent.click(dialogButton("Save").element());
+
+    const recoveredId = findPlanIdByName("Recovered");
+    expect(loadPlan(recoveredId)).toMatchObject({ bossId: "dancing-green" });
+    await expect.poll(() => getPlanSelect().value).toBe(recoveredId);
   });
 });
 
@@ -682,6 +714,33 @@ describe("import confirmation dialog", () => {
     expect(openPicker).toHaveBeenCalledTimes(1);
   });
 
+  test("Save on a sourced draft leaves the committed source selected, not the deleted draft", async () => {
+    const fooId = seedPlan("Foo");
+    await renderOnDraft([pldPlacement("rampart")], {
+      planName: "Foo",
+      sourcePlanId: fooId,
+    });
+    clickImport();
+
+    fireEvent.click(dialogButton("Save").element());
+
+    await expect.poll(() => getPlanSelect().value).toBe(fooId);
+  });
+
+  test("Save on a from-scratch draft leaves the newly-named plan selected", async () => {
+    await renderOnDraft([pldPlacement("rampart")]);
+    clickImport();
+
+    fireEvent.click(dialogButton("Save").element());
+    const input = page.getByPlaceholder("Enter plan name...").element();
+    fireEvent.change(input, { target: { value: "Named Plan" } });
+    fireEvent.click(dialogButton("Save").element());
+
+    await expect
+      .poll(() => getPlanSelect().value)
+      .toBe(findPlanIdByName("Named Plan"));
+  });
+
   test("Save on a from-scratch draft opens the picker only after the Save As name is given", async () => {
     await renderOnDraft([pldPlacement("rampart")]);
     clickImport();
@@ -735,7 +794,11 @@ describe("boss-switch confirmation dialog", () => {
   // "Boss:" is a static label with a single text node (unlike the option
   // text, which interpolates formatTime and would be brittle to match on).
   function getBossSelect() {
-    return page.getByText("Boss:").element().closest("div").querySelector("select");
+    return page
+      .getByText("Boss:")
+      .element()
+      .closest("div")
+      .querySelector("select");
   }
 
   function selectBoss(bossId) {
@@ -787,9 +850,7 @@ describe("boss-switch confirmation dialog", () => {
     await expect.poll(() => getBossSelect().value).toBe("ultimate-boss");
     await expect.element(page.getByRole("dialog")).not.toBeInTheDocument();
     expect(getDraft()).toBe(null);
-    await expect
-      .element(page.getByAltText("Rampart"))
-      .not.toBeInTheDocument();
+    await expect.element(page.getByAltText("Rampart")).not.toBeInTheDocument();
     await expect.poll(() => getPlanSelect().value).toBe("");
   });
 
@@ -814,9 +875,7 @@ describe("boss-switch confirmation dialog", () => {
     committed plan stays saved under its own boss (dancing-green), and the
     screen resets to New Plan (Unsaved) rather than reselecting Foo. */
     await expect.poll(() => getPlanSelect().value).toBe("");
-    await expect
-      .element(page.getByAltText("Rampart"))
-      .not.toBeInTheDocument();
+    await expect.element(page.getByAltText("Rampart")).not.toBeInTheDocument();
   });
 
   test("Save on a from-scratch draft routes through Save As, and the boss switches only once a name is given", async () => {
