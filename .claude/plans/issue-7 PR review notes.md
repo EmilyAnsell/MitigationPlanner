@@ -9,22 +9,6 @@ Continue"; draft destroyed by the first edit after a reload) live in
 `issue-7-future-goals.md` §1, since restoring the draft on load is what closes
 them.
 
----
-
-## 3. `editPlacements` breaks `useDragPlacement`'s memoization
-
-`editPlacements` is a fresh closure every render and is a dependency of
-`completePlacement`'s `useCallback` (`useDragPlacement.js`). Before this PR,
-`setPlacements` was referentially stable, so the callback only rebuilt when
-`placements` changed; now it rebuilds on **every** `App` render — zoom, prepull
-toggle, slot selection. Small in absolute terms, but it silently defeats the
-memoization that is there on purpose.
-
-**Fix:** `useCallback` on `editPlacements`, `editPartyComp`, and
-`handleAutosave` (the last is what makes the first two stabilizable).
-
----
-
 ## Conventions and smaller items
 
 - **`src/utils/openSaveAsDialog.js` builds React elements via `createElement`**

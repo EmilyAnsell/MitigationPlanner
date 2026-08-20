@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useCallback } from "react";
 import { BOSS_TIMELINES } from "../data/bossTimelines";
 import {
   loadPlan,
@@ -46,28 +46,35 @@ export function usePlanSelection() {
    * @param {Object} partyComp - The next 8-slot party composition.
    * @param {Array} placements - The next placements array.
    */
-  const handleAutosave = ({ partyComp, placements }) => {
-    const currentPlan = currentPlanId ? loadPlan(currentPlanId) : null;
+  const handleAutosave = useCallback(
+    /* Memoized handleAutosave so editPlacements/editPartyComp below can be stable: editPlacements is a
+      dep of useDragPlacement's completePlacement, which a document-level drop effect
+      subscribes on. A fresh closure here would re-subscribe that listener every render.
+  */
+    ({ partyComp, placements }) => {
+      const currentPlan = currentPlanId ? loadPlan(currentPlanId) : null;
 
-    // Editing the draft in place — overwrite the same key so its id stays stable.
-    if (currentPlan?.isDraft) {
-      savePlan(currentPlanId, {
-        ...currentPlan,
-        partyComp,
-        placements,
-      });
-    } else {
-      // If not editing a draft, fork a fresh draft — from the saved plan, or from scratch.
-      const draftId = saveDraft({
-        bossId: currentPlan?.bossId ?? currentTimeline,
-        planName: currentPlan?.planName ?? "New Plan",
-        partyComp,
-        placements,
-        sourcePlanId: currentPlan ? currentPlanId : null,
-      });
-      setCurrentPlanId(draftId);
-    }
-  };
+      // Editing the draft in place — overwrite the same key so its id stays stable.
+      if (currentPlan?.isDraft) {
+        savePlan(currentPlanId, {
+          ...currentPlan,
+          partyComp,
+          placements,
+        });
+      } else {
+        // If not editing a draft, fork a fresh draft — from the saved plan, or from scratch.
+        const draftId = saveDraft({
+          bossId: currentPlan?.bossId ?? currentTimeline,
+          planName: currentPlan?.planName ?? "New Plan",
+          partyComp,
+          placements,
+          sourcePlanId: currentPlan ? currentPlanId : null,
+        });
+        setCurrentPlanId(draftId);
+      }
+    },
+    [currentPlanId, currentTimeline],
+  );
 
   const applyTimelineChange = (newTimeline) => {
     setCurrentTimeline(newTimeline);
@@ -180,22 +187,29 @@ export function usePlanSelection() {
    * Sets the partyComp to the composition given by a changed selector, then autosaves.
    * @param {Object} nextComp
    */
-  const editPartyComp = (nextComp) => {
-    setPartyComp(nextComp);
-    handleAutosave({ partyComp: nextComp, placements });
-  };
+  const editPartyComp = useCallback(
+    (nextComp) => {
+      setPartyComp(nextComp);
+      handleAutosave({ partyComp: nextComp, placements });
+    },
+    [placements, handleAutosave],
+  );
 
   /**
    * Sets the placements state to the list given by adding/removing/moving an ability on the timeline, then autosaves.
    * @param {Array} nextPlacements
    */
-  const editPlacements = (nextPlacements) => {
-    setPlacements(nextPlacements);
-    handleAutosave({ partyComp, placements: nextPlacements });
-  };
+  const editPlacements = useCallback(
+    (nextPlacements) => {
+      setPlacements(nextPlacements);
+      handleAutosave({ partyComp, placements: nextPlacements });
+    },
+    [partyComp, handleAutosave],
+  );
 
   /**
    * Removes the indicated placement from the placements state.
+   * Unlike editPlacements, Timeline (where removePlacement is used) isn't memoized yet, so callback unnecssary here.
    * @param {string} placementId
    */
   const removePlacement = (placementId) => {
