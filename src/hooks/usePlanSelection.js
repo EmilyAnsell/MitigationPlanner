@@ -86,7 +86,10 @@ export function usePlanSelection() {
     const draft = getDraft();
     // Unlike handlePlanChange, the plan will always be changed on timeline switch
     if (draft) {
-      const onSave = () => handleSave(() => applyTimelineChange(newTimeline));
+      const onSave = () => {
+        closeDialog();
+        handleSave(() => applyTimelineChange(newTimeline));
+      };
       const onDiscard = () => {
         deleteDraft();
         closeDialog();
@@ -170,7 +173,10 @@ export function usePlanSelection() {
   const handlePlanChange = (planId) => {
     const draft = getDraft();
     if (draft && planId !== draft.planId) {
-      const onSave = () => handleSave(() => applyPlanChange(planId));
+      const onSave = () => {
+        closeDialog();
+        handleSave(() => applyPlanChange(planId));
+      };
       const onDiscard = () => {
         deleteDraft();
         closeDialog();
