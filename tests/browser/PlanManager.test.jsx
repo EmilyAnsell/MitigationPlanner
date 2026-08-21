@@ -6,20 +6,31 @@ import {
   loadPlan,
   savePlan,
   generatePlanId,
+  saveDraft,
+  getDraft,
 } from "../../src/utils/planStorage";
 import { closeDialog } from "../../src/utils/dialogStore";
 
 // GlobalDialog is rendered alongside PlanManager because openDialog/closeDialog
 // write to a store outside React - PlanManager triggers dialogs, but GlobalDialog
 // is what actually renders them, same as in the real App tree.
+//
+// onSave is a bare spy. Save's branching moved to usePlanSelection.handleSave,
+// so the only thing PlanManager still owns is the wiring, and that is all this
+// file can honestly assert. Standing up a stand-in handleSave here would mean
+// re-asserting the stand-in; the real branches are driven through <App /> in
+// unsavedChangesProtection.test.jsx ("the Save button").
 function renderPlanManager(props = {}) {
   const onPlanChange = vi.fn();
+  const onSave = vi.fn();
+
   render(
     <>
       <PlanManager
         currentTimeline="test-boss"
         currentPlanId={null}
         onPlanChange={onPlanChange}
+        onSave={onSave}
         partyComp={{}}
         placements={[]}
         {...props}
@@ -27,7 +38,7 @@ function renderPlanManager(props = {}) {
       <GlobalDialog />
     </>,
   );
-  return { onPlanChange };
+  return { onPlanChange, onSave };
 }
 
 describe("PlanManager Save As flow", () => {
@@ -148,15 +159,6 @@ describe("PlanManager Save As flow", () => {
     await expect.element(page.getByRole("dialog")).not.toBeInTheDocument();
     expect(onPlanChange).not.toHaveBeenCalled();
   });
-
-  test("clicking Save with no current plan falls back to the Save As dialog", async () => {
-    const { onPlanChange } = renderPlanManager({ currentPlanId: null });
-
-    fireEvent.click(page.getByTitle("Save", { exact: true }).element());
-
-    await expect.element(page.getByText("Save Plan As")).toBeInTheDocument();
-    expect(onPlanChange).not.toHaveBeenCalled();
-  });
 });
 
 describe("PlanManager Delete flow", () => {
@@ -217,5 +219,58 @@ describe("PlanManager Delete flow", () => {
     await expect.element(page.getByRole("dialog")).not.toBeInTheDocument();
     expect(loadPlan(planId)).not.toBe(null);
     expect(onPlanChange).not.toHaveBeenCalled();
+  });
+});
+
+describe("PlanManager Save/Save As with an active draft", () => {
+  afterEach(() => {
+    cleanup();
+    closeDialog();
+    localStorage.clear();
+  });
+
+  /* Committing a draft onto its source, or falling through to Save As for a
+  from-scratch draft, is usePlanSelection's handleSave logic now - see
+  unsavedChangesProtection.test.jsx. Here we only need to know PlanManager hands
+  Save straight to the prop even with a draft active, rather than branching on
+  the draft itself the way it used to. */
+  test("clicking Save calls the onSave prop", async () => {
+    const draftId = saveDraft({
+      bossId: "test-boss",
+      planName: "Foo",
+      partyComp: {},
+      placements: [],
+      sourcePlanId: "foo-id",
+    });
+
+    const { onSave } = renderPlanManager({ currentPlanId: draftId });
+    fireEvent.click(page.getByTitle("Save", { exact: true }).element());
+
+    expect(onSave).toHaveBeenCalledTimes(1);
+    await expect.element(page.getByRole("dialog")).not.toBeInTheDocument();
+  });
+
+  test("Save As with a new name creates a new plan, leaves no draft, and selects the new plan", async () => {
+    saveDraft({
+      bossId: "test-boss",
+      planName: "Foo",
+      partyComp: {},
+      placements: [],
+      sourcePlanId: "foo-id",
+    });
+
+    const { onPlanChange } = renderPlanManager();
+    fireEvent.click(page.getByTitle("Save As").element());
+
+    const input = page.getByPlaceholder("Enter plan name...").element();
+    fireEvent.change(input, { target: { value: "Brand New Plan" } });
+    fireEvent.click(
+      page.getByRole("dialog").getByRole("button", { name: "Save" }).element(),
+    );
+
+    expect(getDraft()).toBe(null);
+    expect(onPlanChange).toHaveBeenCalledTimes(1);
+    const newPlanId = onPlanChange.mock.calls[0][0];
+    expect(loadPlan(newPlanId).planName).toBe("Brand New Plan");
   });
 });

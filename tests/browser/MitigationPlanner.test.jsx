@@ -35,10 +35,7 @@ function seedPlanWithPlacements(placements) {
 // Loads a plan seeded by `seedPlanWithPlacements` via PlanManager's plan selector - the app's
 // only seam for putting placements into state without a UI drag.
 function selectPlan(planId) {
-  const planSelect = page
-    .getByText("New Plan (Unsaved)")
-    .element()
-    .closest("select");
+  const planSelect = page.getByRole("combobox", { name: "Plan" }).element();
   fireEvent.change(planSelect, { target: { value: planId } });
 }
 

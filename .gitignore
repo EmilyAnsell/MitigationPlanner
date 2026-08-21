@@ -16,6 +16,9 @@ dist-ssr
 tests/browser/__screenshots__
 .vitest-attachments
 
+# Scratch notes
+.claude/notes/
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json
