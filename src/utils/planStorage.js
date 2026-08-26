@@ -137,6 +137,36 @@ export function commitDraft(draft) {
   deleteDraft();
 }
 
+const LAST_VIEWED_KEY = "ffxiv-mit-last-viewed";
+
+/**
+ * Records the selection to restore on next load.
+ * @param {string|null} planId - The selected plan, or null for "New Plan".
+ * @param {string} bossId - The selected boss timeline. Only consulted on restore
+ *   when planId is non-null - a blank "New Plan" always restores to
+ *   DEFAULT_BOSS_ID rather than a remembered boss.
+ */
+export function updateLastViewed({ planId, bossId }) {
+  localStorage.setItem(LAST_VIEWED_KEY, JSON.stringify({ planId, bossId }));
+}
+
+/**
+ * Returns the last-viewed selection, or null if none was recorded (or the
+ * record is unreadable). The plan it names may since have been deleted -
+ * callers must verify (see getInitialSelection).
+ * @returns {Object|null} - `{ planId, bossId }`, or null.
+ */
+export function getLastViewed() {
+  const data = localStorage.getItem(LAST_VIEWED_KEY);
+  if (!data) return null;
+  try {
+    return JSON.parse(data);
+  } catch (e) {
+    console.error("Error loading last-viewed selection:", e);
+    return null;
+  }
+}
+
 export function exportPlan(plan) {
   const dataStr = JSON.stringify(plan, null, 2);
   const blob = new Blob([dataStr], { type: "application/json" });
