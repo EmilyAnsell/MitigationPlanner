@@ -49,19 +49,21 @@ export const DEFAULT_BOSS_ID = Object.keys(BOSS_TIMELINES)[0];
 
 ### 2. Remember the selection — `src/utils/planStorage.js`
 
-A pointer to the current selection, stored under its own key — deliberately **not** the
-`ffxiv-mit-plan-` prefix, so `getAllPlans` never picks it up as a plan:
+A last-viewed pointer to the current selection, stored under its own key — deliberately
+**not** the `ffxiv-mit-plan-` prefix, so `getAllPlans` never picks it up as a plan:
 
 ```js
 const LAST_VIEWED_KEY = "ffxiv-mit-last-viewed";
 
 /**
- * Records the selection to restore on next load. Stores the boss as well as the
- * plan so an unsaved "New Plan" still returns to the boss it was started on.
+ * Records the selection to restore on next load.
  * @param {string|null} planId - The selected plan, or null for "New Plan".
- * @param {string} bossId - The selected boss timeline.
+ * @param {string} bossId - The selected boss timeline. Only consulted on restore
+ *   when planId is non-null - a blank "New Plan" always restores to
+ *   DEFAULT_BOSS_ID rather than a remembered boss, so a boss that's since been
+ *   removed can never resurface through a stale blank-state record.
  */
-export function setLastViewed({ planId, bossId }) { ... }
+export function updateLastViewed({ planId, bossId }) { ... }
 
 /**
  * Returns the last-viewed selection, or null if none was recorded (or the
@@ -80,16 +82,23 @@ No `getMostRecentPlan`, no `lastModified` parsing.
   `DEFAULT_PARTY_COMP` const (unexported) so the initializer can fall back to it.
 - Add a module-level `getInitialSelection()` with JSDoc, resolving in order:
   1. **`getDraft()`** — the invariant: a draft must never exist unselected. (Redundant in
-     practice, since the fork sets `currentPlanId` to the draft and the pointer follows,
-     but it's one call and it's the rule the feature exists to enforce.)
-  2. **`getLastViewed()`** — used only if it validates: a non-null `planId` must still
-     `loadPlan` to something, and `bossId` must be a key of `BOSS_TIMELINES`. A `planId` of
-     `null` with a valid boss is a legitimate result: blank plan, remembered boss.
+     practice, since the fork sets `currentPlanId` to the draft and the last-viewed pointer
+     follows, but it's one call and it's the rule the feature exists to enforce.)
+  2. **`getLastViewed()`** — used only if it validates: `planId` must be non-null and must
+     still `loadPlan` to something, and its `bossId` must be a key of `BOSS_TIMELINES`. A
+     `planId` of `null` is never used to restore a boss — it falls straight through to blank
+     (step 3), on `DEFAULT_BOSS_ID`, not the pointer's remembered `bossId`. A boss can't be
+     meaningfully "remembered" once its owning plan is gone, and this is also exactly the
+     shape a boss that's since been removed from `BOSS_TIMELINES` would take, so refusing to
+     restore it here means a removed boss can never resurface through a blank New Plan.
   3. **blank** — `{ bossId: DEFAULT_BOSS_ID, planId: null, partyComp: DEFAULT_PARTY_COMP,
      placements: [] }`.
 
-  The boss check matters beyond tidiness: a plan on a boss that no longer exists leaves
-  `timeline` undefined and `timeline.duration` throws.
+  The boss check in step 2 matters beyond tidiness: a plan on a boss that no longer exists
+  leaves `timeline` undefined and `timeline.duration` throws. It's a single all-or-nothing
+  check — a failing `bossId` discards the whole record rather than keeping the plan and
+  falling back to `DEFAULT_BOSS_ID` for just the boss, which would restore a plan alongside a
+  boss it was never on.
 - Seed state from it, one lazy call, before first render:
 
 ```js
@@ -100,7 +109,7 @@ const [placements, setPlacements] = useState(initialSelection.placements);
 const [partyComp, setPartyComp] = useState(initialSelection.partyComp);
 ```
 
-- Write the pointer back from one effect rather than from each of the three sites that set
+- Write the last-viewed pointer back from one effect rather than from each of the three sites that set
   `currentPlanId` (`applyPlanChange`, `applyTimelineChange`, `handleAutosave`'s fork), so a
   future fourth site can't forget to:
 
@@ -108,7 +117,7 @@ const [partyComp, setPartyComp] = useState(initialSelection.partyComp);
 // Write-through, not a subscription: one place, so every path that changes the
 // selection is covered. Re-runs (StrictMode, restore-at-mount) rewrite the same value.
 useEffect(() => {
-  setLastViewed({ planId: currentPlanId, bossId: currentTimeline });
+  updateLastViewed({ planId: currentPlanId, bossId: currentTimeline });
 }, [currentPlanId, currentTimeline]);
 ```
 
@@ -120,14 +129,15 @@ right `<option>` on the first paint.
 
 ## Tests
 
-### Unit — `tests/unit/planStorage.test.js`, new `describe` for the pointer
+### Unit — `tests/unit/planStorage.test.js`, new `describe` for the last-viewed pointer
 
 - `getLastViewed` returns null when nothing was ever recorded
-- `setLastViewed` → `getLastViewed` round-trips `planId` and `bossId`, including a null
+- `updateLastViewed` → `getLastViewed` round-trips `planId` and `bossId`, including a null
   `planId`
 - a malformed record returns null rather than throwing
-- **the pointer is not visible to `getAllPlans` / `getPlansByBoss` / `getDraft`** — pins the
-  key-prefix separation, which is the one way this could quietly corrupt the plan list
+- **the last-viewed pointer is not visible to `getAllPlans` / `getPlansByBoss` / `getDraft`**
+  — a regression test proving `planStorage.js`'s key-namespace separation, the one way this
+  could quietly corrupt the plan list
 
 ### Browser — `tests/browser/unsavedChangesProtection.test.jsx`
 
@@ -145,19 +155,25 @@ to pick — `package.json` still says `0.0.0`, so I'll use your wording verbatim
 say otherwise.
 
 **New `describe("startup restore")`** — driven through the real unmount/remount cycle
-(`render` → interact → `unmount` → `render`) rather than by seeding the pointer directly, so
-each test covers the write-through and the restore together:
+(`render` → interact → `unmount` → `render`) rather than by seeding the last-viewed pointer
+directly, so each test covers the write-through and the restore together, except where the
+state under test has no UI path to it at all (see below):
 
 - viewing a saved plan without editing it, then remounting, restores that plan with its
   placements, party comp, and boss (seed it on `"ultimate-boss"` with a non-default `tank1`
   job, so every restored field is distinguishable from the defaults — this is the case
   last-modified would get wrong)
-- a draft is preferred even when the pointer names a different plan
+- a draft is preferred even when the last-viewed pointer names a different plan
 - with empty storage, boots to "New Plan" on the first boss in `BOSS_TIMELINES`
-- a pointer naming a since-deleted plan boots to the blank default without crashing
-  (remove the key directly, as at `:411`)
-- a pointer with a `null` planId restores its boss, staying on "New Plan"
-- a pointer naming a boss no longer in `BOSS_TIMELINES` is ignored, not crashed on
+- a last-viewed pointer naming a since-deleted plan boots to the blank default without
+  crashing (remove the key directly, as at `:411`)
+- a last-viewed pointer with a `null` planId falls back to `DEFAULT_BOSS_ID`, not the boss it
+  was recorded with, staying on "New Plan" — reachable through the UI (switch boss on a blank
+  New Plan, unmount, remount) since a null-`planId` record is never trusted for its boss
+- a last-viewed pointer naming a boss no longer in `BOSS_TIMELINES` is ignored *entirely* —
+  not just the boss, the plan too — seed a real plan, then call `updateLastViewed` directly
+  with that plan's id and a bogus `bossId`, since the record's `bossId` otherwise never drifts
+  from its plan's own `bossId` and there's no in-app way to desync them
 
 ## Verification
 
@@ -170,9 +186,9 @@ npm run dev
 
 Manual pass in `npm run dev`: place an ability (creates a draft) → hard-reload → the draft is
 selected with its placements and boss. Save it, switch to another plan without editing,
-reload → that plan comes back. Switch boss on a blank New Plan, reload → same boss, still
-blank. Finally `localStorage.clear()` in the console and reload → "New Plan" on the first
-boss listed in the selector.
+reload → that plan comes back. Switch boss on a blank New Plan, reload → back on the default
+boss, not the one just switched to, still blank. Finally `localStorage.clear()` in the
+console and reload → "New Plan" on the first boss listed in the selector.
 
 **Existing-test fallout check:** `renderOnDraft` and the seed-then-`selectPlan` tests keep
 passing — the mount restore lands on the same selection they were selecting manually, and

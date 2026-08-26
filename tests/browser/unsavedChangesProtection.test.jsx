@@ -3,6 +3,7 @@ import { render, cleanup, fireEvent } from "@testing-library/react";
 import { page } from "vitest/browser";
 import App from "../../src/App.jsx";
 import { getJobAbilities } from "../../src/data/jobs";
+import { DEFAULT_BOSS_ID } from "../../src/data/bossTimelines";
 import {
   saveDraft,
   savePlan,
@@ -11,6 +12,7 @@ import {
   getAllPlans,
   getPlansByBoss,
   loadPlan,
+  updateLastViewed,
 } from "../../src/utils/planStorage";
 import { closeDialog } from "../../src/utils/dialogStore";
 
@@ -128,21 +130,21 @@ describe("draft persistence and selection", () => {
     localStorage.clear();
   });
 
-  test("a draft created before mount survives unmount and remount, and is not auto-loaded", async () => {
-    seedDraft();
+  test("a draft created before mount is selected on remount, with its placements on screen", async () => {
+    const rampart = getJobAbilities("PLD").find((a) => a.id === "rampart");
+    const draftId = seedDraft([
+      { ...rampart, slot: "tank1", startTime: 0, placementId: "seed-1" },
+    ]);
 
     const { unmount } = render(<App />);
-    await expect
-      .element(page.getByText("New Plan (draft)"))
-      .toBeInTheDocument();
+    await expect.poll(() => getPlanSelect().value).toBe(draftId);
+    await expect.element(page.getByAltText("Rampart")).toBeInTheDocument();
     unmount();
 
     render(<App />);
 
-    expect(getPlanSelect().value).toBe("");
-    await expect
-      .element(page.getByText("New Plan (draft)"))
-      .toBeInTheDocument();
+    await expect.poll(() => getPlanSelect().value).toBe(draftId);
+    await expect.element(page.getByAltText("Rampart")).toBeInTheDocument();
   });
 
   test("selecting the draft from the selector loads its placements", async () => {
@@ -447,6 +449,10 @@ describe("plan-switch confirmation dialog", () => {
     return { draftId, otherId };
   }
 
+  // Vacuous as of the 2026-08-26 startup-restore feature: "Other Plan" is the
+  // only plan in storage and is already selected by the time this runs, so
+  // selectPlan below is a no-op. Retained so a regression that stops
+  // restoring at mount would still be caught here.
   test("with no draft, switching to another plan loads it immediately without prompting", async () => {
     const otherId = seedPlan("Other Plan", [pldPlacement("rampart")]);
 
@@ -889,5 +895,136 @@ describe("boss-switch confirmation dialog", () => {
       placements: [pldPlacement("rampart")],
     });
     await expect.poll(() => getPlanSelect().value).toBe("");
+  });
+});
+
+/* Covers usePlanSelection's mount-time restore: draft first, else the
+last-viewed plan (validated against storage/BOSS_TIMELINES), else blank on
+DEFAULT_BOSS_ID. A last-viewed pointer with a null planId is never trusted for
+its boss - only a non-null planId's own bossId is - so a boss that's since
+been removed from BOSS_TIMELINES can't resurface through a blank New Plan.
+Each test drives a real unmount/remount cycle rather than seeding the
+last-viewed pointer directly, so the write-through (on the first render) and
+the restore (on the second) are both exercised together - except where the
+state under test has no path through the UI at all, where storage is edited
+directly, same as the deleted-plan-key case above at :411. */
+describe("startup restore", () => {
+  afterEach(() => {
+    cleanup();
+    closeDialog();
+    localStorage.clear();
+  });
+
+  function getBossSelect() {
+    return page.getByRole("combobox", { name: "Boss:" }).element();
+  }
+
+  function selectBoss(bossId) {
+    fireEvent.change(getBossSelect(), { target: { value: bossId } });
+  }
+
+  // Ported from MitigationPlanner.test.jsx - PartyComposition's job <select> has
+  // no htmlFor/id linking it to its <label>, and the slot label text is
+  // duplicated by PartyList's frozen timeline column, so only filtering to the
+  // copy sitting in a <div> with a <select> resolves the real control.
+  function getSlotSelect(slotLabel) {
+    const label = page
+      .getByText(slotLabel)
+      .elements()
+      .find((el) => el.closest("div")?.querySelector("select"));
+    return label.closest("div").querySelector("select");
+  }
+
+  test("viewing a saved plan without editing it, then remounting, restores that plan with its placements, party comp, and boss", async () => {
+    const rampart = getJobAbilities("WAR").find((a) => a.id === "rampart");
+    const planId = generatePlanId("ultimate-boss", "Foo");
+    savePlan(planId, {
+      bossId: "ultimate-boss",
+      planName: "Foo",
+      partyComp: { ...DEFAULT_PARTY_COMP, tank1: "WAR" },
+      placements: [
+        { ...rampart, slot: "tank1", startTime: 0, placementId: "seed-1" },
+      ],
+    });
+
+    const { unmount } = render(<App />);
+    selectPlan(planId);
+    await expect.poll(() => getPlanSelect().value).toBe(planId);
+    unmount();
+
+    render(<App />);
+
+    await expect.poll(() => getPlanSelect().value).toBe(planId);
+    await expect.poll(() => getBossSelect().value).toBe("ultimate-boss");
+    await expect.poll(() => getSlotSelect("Tank 1").value).toBe("WAR");
+    await expect.element(page.getByAltText("Rampart")).toBeInTheDocument();
+  });
+
+  // In theory a draft will always be the last-viewed plan, but this ensures the behaviour is kept even with cross-tab potential issues.
+  test("a draft is preferred even when the last-viewed pointer names a different plan", async () => {
+    const fooId = seedPlan("Foo");
+
+    const { unmount } = render(<App />);
+    selectPlan(fooId);
+    await expect.poll(() => getPlanSelect().value).toBe(fooId);
+    unmount();
+
+    // Seeded directly, as if left behind by another tab - the last-viewed
+    // pointer still names "Foo", but a draft's existence is the invariant
+    // that wins.
+    const draftId = seedDraft([pldPlacement("rampart")]);
+
+    render(<App />);
+
+    await expect.poll(() => getPlanSelect().value).toBe(draftId);
+  });
+
+  test("with empty storage, boots to New Plan on the first boss in BOSS_TIMELINES", async () => {
+    render(<App />);
+
+    expect(getPlanSelect().value).toBe("");
+    expect(getBossSelect().value).toBe(DEFAULT_BOSS_ID);
+  });
+
+  test("a last-viewed pointer naming a since-deleted plan boots to the blank default without crashing", async () => {
+    const fooId = seedPlan("Foo");
+    const { unmount } = render(<App />);
+    selectPlan(fooId);
+    await expect.poll(() => getPlanSelect().value).toBe(fooId);
+    unmount();
+
+    localStorage.removeItem(`ffxiv-mit-plan-${fooId}`);
+
+    expect(() => render(<App />)).not.toThrow();
+    expect(getPlanSelect().value).toBe("");
+    expect(getBossSelect().value).toBe(DEFAULT_BOSS_ID);
+  });
+
+  test("a last-viewed pointer with a null planId falls back to the default boss, not the boss it was recorded with", async () => {
+    const { unmount } = render(<App />);
+    selectBoss("ultimate-boss");
+    await expect.poll(() => getBossSelect().value).toBe("ultimate-boss");
+    unmount();
+
+    render(<App />);
+
+    expect(getPlanSelect().value).toBe("");
+    await expect.poll(() => getBossSelect().value).toBe(DEFAULT_BOSS_ID);
+  });
+
+  test("a last-viewed pointer naming a boss no longer in BOSS_TIMELINES is ignored entirely, not crashed on", async () => {
+    const fooId = seedPlan("Foo");
+    /* Can't be produced through the UI - the last-viewed pointer's bossId
+    never drifts from its plan's own bossId in normal operation - so this is
+    written directly to simulate a boss that existed in a previous session but
+    has since been removed from bossTimelines.js. The whole record is
+    discarded, not just the boss: "Foo" itself is still loadable, but staying
+    on it while defaulting only the boss would show a plan alongside a boss it
+    was never on. */
+    updateLastViewed({ planId: fooId, bossId: "no-longer-exists" });
+
+    expect(() => render(<App />)).not.toThrow();
+    expect(getPlanSelect().value).toBe("");
+    expect(getBossSelect().value).toBe(DEFAULT_BOSS_ID);
   });
 });

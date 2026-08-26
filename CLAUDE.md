@@ -107,6 +107,7 @@ Add the job to `JOBS` in `src/data/jobs.js`. Drop the ability icon PNG into `src
 - **Styling**: Tailwind classes for static styles; inline `style={{}}` only for values that require JS computation (positions, widths, colors from data). Never use inline style for something expressible as a Tailwind class.
 - **File extensions**: `.jsx` for React components, `.js` for everything else (hooks, utils, data)
 - **Exports**: named exports for utilities/data; default export for components
+- **The `set` prefix is reserved for React state setters** (a `useState`/`useReducer` setter, or a prop that wraps one directly). A plain function that writes to storage outside React (`localStorage`, an API call, etc.) should use a different verb — e.g. `update`, `save`, `record` — so its name doesn't imply it triggers a re-render. See `updateLastViewed` in `planStorage.js`.
 - **Test coverage**: Unit and e2e tests are new to this project. Not everything needs to be covered now, but when planning to touch a component or function it must have existing tests in place before modifying the code to be tested.
 - **Test editing**: Never edit or remove a test when working on core code changes in order to make a failing test pass. If the expected functionality of something being tested is being changed, rely on a human developer to make the call to modify tests.
 

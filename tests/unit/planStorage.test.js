@@ -9,6 +9,8 @@ import {
   saveDraft,
   deleteDraft,
   commitDraft,
+  updateLastViewed,
+  getLastViewed,
 } from "../../src/utils/planStorage";
 
 /**
@@ -312,6 +314,39 @@ describe("commitDraft", () => {
     });
 
     expect(() => commitDraft(getDraft())).toThrow();
+  });
+});
+
+describe("updateLastViewed / getLastViewed", () => {
+  test("getLastViewed returns null when nothing was ever recorded", () => {
+    expect(getLastViewed()).toBe(null);
+  });
+
+  test("updateLastViewed then getLastViewed round-trips planId and bossId, including a null planId", () => {
+    updateLastViewed({ planId: "foo-id", bossId: "dancing-green" });
+    expect(getLastViewed()).toEqual({
+      planId: "foo-id",
+      bossId: "dancing-green",
+    });
+
+    updateLastViewed({ planId: null, bossId: "ultimate-boss" });
+    expect(getLastViewed()).toEqual({ planId: null, bossId: "ultimate-boss" });
+  });
+
+  test("a malformed record returns null rather than throwing", () => {
+    localStorage.setItem("ffxiv-mit-last-viewed", "{not valid json");
+
+    expect(() => getLastViewed()).not.toThrow();
+    expect(getLastViewed()).toBe(null);
+  });
+
+  // A regression test proving planStorage.js's key-namespace separation
+  test("the last-viewed pointer is not visible to getAllPlans, getPlansByBoss, or getDraft", () => {
+    updateLastViewed({ planId: "foo-id", bossId: "dancing-green" });
+
+    expect(getAllPlans()).toEqual({});
+    expect(getPlansByBoss("dancing-green")).toEqual([]);
+    expect(getDraft()).toBe(null);
   });
 });
 
