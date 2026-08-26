@@ -948,6 +948,7 @@ describe("startup restore", () => {
     });
 
     const { unmount } = render(<App />);
+    selectBoss("ultimate-boss");
     selectPlan(planId);
     await expect.poll(() => getPlanSelect().value).toBe(planId);
     unmount();

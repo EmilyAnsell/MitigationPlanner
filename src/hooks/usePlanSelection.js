@@ -1,5 +1,5 @@
-import { useState, useCallback } from "react";
-import { BOSS_TIMELINES } from "../data/bossTimelines";
+import { useState, useCallback, useEffect } from "react";
+import { BOSS_TIMELINES, DEFAULT_BOSS_ID } from "../data/bossTimelines";
 import {
   loadPlan,
   getDraft,
@@ -7,10 +7,63 @@ import {
   saveDraft,
   savePlan,
   commitDraft,
+  getLastViewed,
+  updateLastViewed,
 } from "../utils/planStorage";
 import { closeDialog, openDialog } from "../utils/dialogStore";
 import { confirmDiscardDraft } from "../utils/confirmDiscardDraft";
 import { openSaveAsDialog } from "../utils/openSaveAsDialog";
+
+const DEFAULT_PARTY_COMP = {
+  tank1: "PLD",
+  tank2: "WAR",
+  healer1: "AST",
+  healer2: "SCH",
+  dps1: "DRG",
+  dps2: "RDM",
+  dps3: "BRD",
+  dps4: "PCT",
+};
+
+/**
+ * Resolves which selection to boot into, in priority order: the current
+ * draft (a draft must never exist unselected), else the last-viewed plan if
+ * it still validates, else blank.
+ * @returns {Object} - `{ bossId, planId, partyComp, placements }`.
+ */
+function getInitialSelection() {
+  const draft = getDraft();
+  if (draft) {
+    return {
+      bossId: draft.bossId,
+      planId: draft.planId,
+      partyComp: draft.partyComp,
+      placements: draft.placements,
+    };
+  }
+
+  const lastViewed = getLastViewed();
+  // A last-viewed record is only trusted when its planId is non-null and
+  // still loads a plan, and its bossId is a key of BOSS_TIMELINES.
+  if (lastViewed?.planId && BOSS_TIMELINES[lastViewed.bossId]) {
+    const plan = loadPlan(lastViewed.planId);
+    if (plan) {
+      return {
+        bossId: lastViewed.bossId,
+        planId: lastViewed.planId,
+        partyComp: plan.partyComp || DEFAULT_PARTY_COMP,
+        placements: plan.placements || [],
+      };
+    }
+  }
+
+  return {
+    bossId: DEFAULT_BOSS_ID,
+    planId: null,
+    partyComp: DEFAULT_PARTY_COMP,
+    placements: [],
+  };
+}
 
 /**
  * Owns which boss timeline, party comp, placements, and plan are currently selected, the handlers that
@@ -22,20 +75,19 @@ import { openSaveAsDialog } from "../utils/openSaveAsDialog";
     `editPlacements`/`removePlacement`, `placements`
  */
 export function usePlanSelection() {
-  // Uses a default "dancing-green" boss for now. In the future, this could perhaps be a LATEST_BOSS.
-  const [currentTimeline, setCurrentTimeline] = useState("dancing-green");
-  const [currentPlanId, setCurrentPlanId] = useState(null);
-  const [placements, setPlacements] = useState([]);
-  const [partyComp, setPartyComp] = useState({
-    tank1: "PLD",
-    tank2: "WAR",
-    healer1: "AST",
-    healer2: "SCH",
-    dps1: "DRG",
-    dps2: "RDM",
-    dps3: "BRD",
-    dps4: "PCT",
-  });
+  const [initialSelection] = useState(getInitialSelection); // lazy: runs once per mount
+  const [currentTimeline, setCurrentTimeline] = useState(
+    initialSelection.bossId,
+  );
+  const [currentPlanId, setCurrentPlanId] = useState(initialSelection.planId);
+  const [placements, setPlacements] = useState(initialSelection.placements);
+  const [partyComp, setPartyComp] = useState(initialSelection.partyComp);
+
+  // Write-through, not a subscription: one place, so every path that changes the
+  // selection is covered. Re-runs (StrictMode, restore-at-mount) rewrite the same value.
+  useEffect(() => {
+    updateLastViewed({ planId: currentPlanId, bossId: currentTimeline });
+  }, [currentPlanId, currentTimeline]);
 
   const timeline = BOSS_TIMELINES[currentTimeline];
 
