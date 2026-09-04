@@ -324,7 +324,10 @@ describe("the Save button", () => {
     fireEvent.click(page.getByTitle("Save", { exact: true }).element());
   }
 
-  test("on a plain saved plan, re-saves in place and does not prompt for a name", async () => {
+  /* No edit was made, so the on-screen state already matches storage - there is
+  nothing for Save to do, so it is disabled rather than performing a no-op
+  re-save onto the same key. */
+  test("on a plain saved plan with no unsaved changes, Save is disabled", async () => {
     const placements = [pldPlacement("rampart")];
     const fooId = seedPlan("Foo", placements);
 
@@ -332,26 +335,11 @@ describe("the Save button", () => {
     selectPlan(fooId);
     await expect.poll(() => getPlanSelect().value).toBe(fooId);
 
-    clickSave();
-
-    await expect.element(page.getByText("Plan saved!")).toBeInTheDocument();
     await expect
-      .element(page.getByText("Save Plan As"))
-      .not.toBeInTheDocument();
-    expect(loadPlan(fooId)).toMatchObject({
-      bossId: "dancing-green",
-      planName: "Foo",
-      placements,
-    });
-    /* No edit was made, so the on-screen state already matches storage - Save is
-    an effective no-op re-save onto the same key (locked design decision #8), not
-    a commit, and it must not spawn a second plan or a draft. */
+      .element(page.getByTitle("Save", { exact: true }))
+      .toBeDisabled();
     expect(getPlansByBoss("dancing-green")).toHaveLength(1);
     expect(getDraft()).toBe(null);
-    // Saving is not also a navigation - Foo stays loaded and on screen rather
-    // than dropping back to "New Plan".
-    await expect.poll(() => getPlanSelect().value).toBe(fooId);
-    await expect.element(page.getByAltText("Rampart")).toBeInTheDocument();
   });
 
   test("on a sourced draft, commits onto the source plan and selects it, leaving no draft", async () => {
@@ -400,10 +388,12 @@ describe("the Save button", () => {
   user clearing site data. No in-app path strands the selection this way today;
   deleting the key directly is how the test reaches the state, and this pins
   the handling so a future path that does can't reintroduce the crash.
-  Falling through to Save As keeps the on-screen work recoverable - writing
-  into the missing key would mint a plan with no bossId, which no boss's plan
-  list would ever show again. */
-  test("on a selection whose plan no longer exists, routes through Save As rather than saving into the missing key", async () => {
+  With no plan record to read, currentPlanIsDraft is false, so Save is
+  disabled the same as it would be for any other non-draft selection - but
+  Save As stays enabled and keeps the on-screen work recoverable, since
+  writing into the missing key would mint a plan with no bossId, which no
+  boss's plan list would ever show again. */
+  test("on a selection whose plan no longer exists, Save is disabled but Save As recovers into a new key", async () => {
     const fooId = seedPlan("Foo");
 
     render(<App />);
@@ -411,7 +401,12 @@ describe("the Save button", () => {
     await expect.poll(() => getPlanSelect().value).toBe(fooId);
 
     localStorage.removeItem(`ffxiv-mit-plan-${fooId}`);
-    clickSave();
+
+    await expect
+      .element(page.getByTitle("Save", { exact: true }))
+      .toBeDisabled();
+
+    fireEvent.click(page.getByTitle("Save As").element());
 
     await expect.element(page.getByText("Save Plan As")).toBeInTheDocument();
     expect(loadPlan(fooId)).toBe(null);

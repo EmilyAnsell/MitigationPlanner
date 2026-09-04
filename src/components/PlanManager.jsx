@@ -27,6 +27,7 @@ export default function PlanManager({
 
   const plansForBoss = getPlansByBoss(currentTimeline);
   const currentPlan = currentPlanId ? loadPlan(currentPlanId) : null;
+  const currentPlanIsDraft = currentPlan?.isDraft || false;
 
   const handleDelete = () => {
     if (!currentPlanId) return;
@@ -128,8 +129,9 @@ export default function PlanManager({
 
       {/* Action Buttons */}
       <button
+        disabled={!currentPlanIsDraft}
         onClick={() => onSave()}
-        className="flex items-center gap-1 px-3 py-2 bg-blue-600 rounded hover:bg-blue-700"
+        className="flex items-center gap-1 px-3 py-2 bg-blue-600 rounded hover:bg-blue-700 disabled:bg-transparent disabled:text-slate-500 disabled:ring-2 disabled:ring-slate-700"
         title="Save"
       >
         <Save size={16} />
