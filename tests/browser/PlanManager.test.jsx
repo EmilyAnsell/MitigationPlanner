@@ -8,6 +8,7 @@ import {
   generatePlanId,
   saveDraft,
   getDraft,
+  getAllPlans,
 } from "../../src/utils/planStorage";
 import { closeDialog } from "../../src/utils/dialogStore";
 
@@ -158,6 +159,129 @@ describe("PlanManager Save As flow", () => {
 
     await expect.element(page.getByRole("dialog")).not.toBeInTheDocument();
     expect(onPlanChange).not.toHaveBeenCalled();
+  });
+});
+
+describe("PlanManager Save As flow - name collisions", () => {
+  afterEach(() => {
+    cleanup();
+    closeDialog();
+    localStorage.clear();
+  });
+
+  /* Seeds a saved plan under a fixed id/name, and renders PlanManager with a
+  distinct partyComp/placements standing in for "what's currently on screen" -
+  distinct from the seeded plan's contents so overwriting is observable. */
+  function renderWithCollisionTarget() {
+    savePlan("existing-plan-id", {
+      bossId: "test-boss",
+      planName: "Existing Plan",
+      partyComp: { tank1: "PLD" },
+      placements: [],
+    });
+    return renderPlanManager({
+      partyComp: { tank1: "WAR" },
+      placements: [{ id: "rampart", startTime: 5 }],
+    });
+  }
+
+  async function submitCollidingName() {
+    fireEvent.click(page.getByTitle("Save As").element());
+    const input = page.getByPlaceholder("Enter plan name...").element();
+    fireEvent.change(input, { target: { value: "Existing Plan" } });
+    fireEvent.click(
+      page.getByRole("dialog").getByRole("button", { name: "Save" }).element(),
+    );
+    await expect.element(page.getByText("Overwrite Plan?")).toBeInTheDocument();
+  }
+
+  test("entering a name that matches an existing plan for the same boss prompts to overwrite instead of saving", async () => {
+    const { onPlanChange } = renderWithCollisionTarget();
+
+    await submitCollidingName();
+
+    await expect
+      .element(
+        page.getByText(
+          'A plan named "Existing Plan" already exists for this boss.',
+        ),
+      )
+      .toBeInTheDocument();
+    expect(onPlanChange).not.toHaveBeenCalled();
+    expect(loadPlan("existing-plan-id").partyComp).toEqual({ tank1: "PLD" });
+  });
+
+  test('"Choose New Name" returns to the Save Plan As dialog without saving anything', async () => {
+    const { onPlanChange } = renderWithCollisionTarget();
+    await submitCollidingName();
+
+    fireEvent.click(
+      page
+        .getByRole("dialog")
+        .getByRole("button", { name: "Choose New Name" })
+        .element(),
+    );
+
+    await expect.element(page.getByText("Save Plan As")).toBeInTheDocument();
+    await expect
+      .element(page.getByPlaceholder("Enter plan name..."))
+      .toBeInTheDocument();
+    expect(onPlanChange).not.toHaveBeenCalled();
+    expect(Object.keys(getAllPlans())).toEqual(["existing-plan-id"]);
+  });
+
+  test('"Overwrite" saves under the existing plan\'s id, replacing its contents, rather than creating a second plan', async () => {
+    const { onPlanChange } = renderWithCollisionTarget();
+    await submitCollidingName();
+
+    fireEvent.click(
+      page
+        .getByRole("dialog")
+        .getByRole("button", { name: "Overwrite" })
+        .element(),
+    );
+
+    expect(onPlanChange).toHaveBeenCalledWith("existing-plan-id");
+    expect(loadPlan("existing-plan-id")).toMatchObject({
+      planName: "Existing Plan",
+      partyComp: { tank1: "WAR" },
+      placements: [{ id: "rampart", startTime: 5 }],
+    });
+    const plansNamedExistingPlan = Object.values(getAllPlans()).filter(
+      (plan) => plan.planName === "Existing Plan",
+    );
+    expect(plansNamedExistingPlan).toHaveLength(1);
+    await expect.element(page.getByText("Plan saved!")).toBeInTheDocument();
+  });
+
+  test('"Overwrite" also clears any active draft, the same as a normal Save As', async () => {
+    savePlan("existing-plan-id", {
+      bossId: "test-boss",
+      planName: "Existing Plan",
+      partyComp: {},
+      placements: [],
+    });
+    saveDraft({
+      bossId: "test-boss",
+      planName: "New Plan",
+      partyComp: {},
+      placements: [],
+      sourcePlanId: null,
+    });
+    renderPlanManager({
+      partyComp: { tank1: "WAR" },
+      placements: [],
+    });
+
+    await submitCollidingName();
+    fireEvent.click(
+      page
+        .getByRole("dialog")
+        .getByRole("button", { name: "Overwrite" })
+        .element(),
+    );
+
+    expect(getDraft()).toBe(null);
   });
 });
 
